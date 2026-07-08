@@ -1,0 +1,253 @@
+.assistant-panel {
+  width: 360px;
+  min-width: 280px;
+  max-width: 420px;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #16213e;
+  border-left: 1px solid #2a3a5a;
+  flex-shrink: 0;
+}
+
+.assistant-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid #2a3a5a;
+  background: #0f3460;
+}
+
+.assistant-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: #e0e0e0;
+  letter-spacing: 0.02em;
+}
+
+.assistant-badge {
+  font-size: 11px;
+  padding: 2px 8px;
+  background: #1a4a8a;
+  border-radius: 10px;
+  color: #88bbff;
+}
+
+.messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  scroll-behavior: smooth;
+}
+
+.message {
+  max-width: 100%;
+}
+
+.message--user .message-content {
+  background: #1a4a8a;
+  border-radius: 12px 12px 4px 12px;
+  padding: 10px 14px;
+  margin-left: 24px;
+  font-size: 14px;
+  color: #e8f0ff;
+}
+
+.message--assistant .message-content {
+  background: #1e2d4a;
+  border-radius: 12px 12px 12px 4px;
+  padding: 10px 14px;
+  margin-right: 24px;
+  font-size: 13px;
+  color: #d0d8e8;
+}
+
+.message--loading .message-content {
+  padding: 14px;
+}
+
+.message-body {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.message-body p {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.message-body li {
+  padding-left: 14px;
+  position: relative;
+  line-height: 1.5;
+}
+
+.message-body li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #6090c0;
+}
+
+.message-body strong {
+  color: #c8e0ff;
+}
+
+.message-body em {
+  color: #a0c8e0;
+}
+
+.message-body code {
+  background: #0d1f3a;
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-family: monospace;
+  font-size: 12px;
+  color: #80c8ff;
+}
+
+.loading-dots {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.loading-dots span {
+  width: 7px;
+  height: 7px;
+  background: #4a7abf;
+  border-radius: 50%;
+  animation: bounce 1.2s infinite;
+}
+
+.loading-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.loading-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes bounce {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.7);
+    opacity: 0.5;
+  }
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.tool-results {
+  margin-top: 6px;
+  font-size: 11px;
+  color: #6a8aaa;
+  margin-right: 24px;
+}
+
+.tool-results summary {
+  cursor: pointer;
+  padding: 4px 8px;
+  background: #0d1f3a;
+  border-radius: 4px;
+  list-style: none;
+}
+
+.tool-results summary::-webkit-details-marker {
+  display: none;
+}
+
+.tool-results ul {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.tool-results li {
+  padding: 3px 8px;
+  border-radius: 3px;
+  font-family: monospace;
+  word-break: break-word;
+}
+
+.tool-ok {
+  background: #0a2a1a;
+  color: #60b080;
+}
+
+.tool-err {
+  background: #2a0a0a;
+  color: #c06060;
+}
+
+.input-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px;
+  border-top: 1px solid #2a3a5a;
+  background: #111828;
+}
+
+.message-input {
+  flex: 1;
+  background: #1a2a40;
+  border: 1px solid #2a3a5a;
+  border-radius: 8px;
+  color: #e0e0e0;
+  font-size: 13px;
+  padding: 8px 12px;
+  resize: none;
+  line-height: 1.4;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.message-input:focus {
+  outline: none;
+  border-color: #4a7abf;
+}
+
+.message-input::placeholder {
+  color: #506080;
+}
+
+.message-input:disabled {
+  opacity: 0.5;
+}
+
+.send-btn {
+  width: 40px;
+  height: 40px;
+  align-self: flex-end;
+  background: #1a4a8a;
+  border: none;
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 18px;
+  cursor: pointer;
+  transition: background 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.send-btn:hover:not(:disabled) {
+  background: #2a6ab0;
+}
+
+.send-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
