@@ -60,6 +60,52 @@ export interface MapAssistantAdapter {
 
 That gives the model a controlled toolbox instead of unrestricted UI control.
 
+## First version (implemented)
+
+This repo now includes a first, provider-neutral TypeScript core:
+
+- `src/adapter.ts` — `MapAssistantAdapter` contract
+- `src/types.ts` — shared map/layer/query types
+- `src/tools.ts` — typed assistant tool-call schema
+- `src/router.ts` — bounded tool router/executor
+- `src/adapters/memory.ts` — in-memory adapter for local demos/tests
+
+### Quick start
+
+```bash
+npm install
+npm run build
+```
+
+### Minimal usage
+
+```ts
+import { MapAssistantRouter, MemoryMapAssistantAdapter } from "webmap_ai";
+
+const adapter = new MemoryMapAssistantAdapter({
+  mapState: {
+    bounds: { west: -123, south: 37, east: -121, north: 38 },
+    center: { lng: -122, lat: 37.5 },
+    zoom: 9,
+    selectedFeatureIds: [],
+  },
+  layers: [
+    {
+      summary: { id: "cities", name: "Cities", type: "geojson", visible: true },
+      schema: { layerId: "cities", fields: [{ name: "name", type: "string" }] },
+      features: [{ id: "1", layerId: "cities", properties: { name: "Oakland" } }],
+    },
+  ],
+});
+
+const router = new MapAssistantRouter(adapter);
+
+const response = await router.run({
+  message: "What layers are loaded?",
+  toolCalls: [{ name: "list_layers" }, { name: "get_map_state" }],
+});
+```
+
 ## Design principles
 
 - Provider-neutral, not Esri-dependent
@@ -194,7 +240,7 @@ That is enough to prove the interaction model without getting lost in agent-plat
 
 ## Status
 
-Initial repo scaffold.
+Initial first-version scaffold implemented.
 
 The next useful additions are:
 

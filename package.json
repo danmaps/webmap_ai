@@ -1,0 +1,36 @@
+{
+  "name": "webmap_ai",
+  "version": "0.1.0",
+  "description": "Provider-neutral AI assistant infrastructure for web maps.",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run typecheck"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/danmaps/webmap_ai.git"
+  },
+  "keywords": [
+    "maps",
+    "llm",
+    "assistant",
+    "typescript"
+  ],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/danmaps/webmap_ai/issues"
+  },
+  "homepage": "https://github.com/danmaps/webmap_ai#readme",
+  "devDependencies": {
+    "@types/node": "^26.1.0",
+    "typescript": "^6.0.3"
+  }
+}
