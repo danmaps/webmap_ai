@@ -20,9 +20,10 @@ jobs:
           cache: npm
           registry-url: "https://registry.npmjs.org"
       # Trusted publishing (OIDC) requires npm >= 11.5.1; setup-node ships an older npm.
-      # npm@latest also requires Node >= 22, matching the version pinned above.
+      # Pin to the 11.x line: npm@12's global install is broken (missing sigstore),
+      # and 11.x bundles sigstore correctly for provenance generation.
       - name: Upgrade npm for trusted publishing
-        run: npm install -g npm@latest
+        run: npm install -g npm@11
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
