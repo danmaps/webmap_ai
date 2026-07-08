@@ -10,7 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - GitHub Actions CI workflow running `npm ci`, `npm run typecheck`, `npm run build`, and `npm test` on every push and pull request.
-- GitHub Actions release workflow that publishes to npm on `v*` version tags, gated by `npm publish --dry-run`.
+- GitHub Actions release workflow that publishes to npm on `v*` version tags via OIDC trusted publishing (no stored token), gated by `npm publish --dry-run`.
 - Vitest runtime test suite covering `MapAssistantRouter` and the memory/MapLibre adapters.
 - `LICENSE` file (ISC) and completed `package.json` metadata (`author`, `publishConfig`).
 

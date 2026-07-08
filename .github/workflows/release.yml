@@ -19,13 +19,16 @@ jobs:
           node-version: 20
           cache: npm
           registry-url: "https://registry.npmjs.org"
+      # Trusted publishing (OIDC) requires npm >= 11.5.1; setup-node ships an older npm.
+      - name: Upgrade npm for trusted publishing
+        run: npm install -g npm@latest
       - run: npm ci
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
       - name: Validate package contents
         run: npm publish --dry-run
+      # No NODE_AUTH_TOKEN: authentication is handled via OIDC trusted publishing.
+      # Provenance attestations are generated automatically.
       - name: Publish
         run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

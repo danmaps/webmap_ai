@@ -336,11 +336,25 @@ git push --follow-tags
 ```
 
 The release workflow re-runs the build and tests, validates the package with
-`npm publish --dry-run`, then publishes using the `NPM_TOKEN` repository secret.
+`npm publish --dry-run`, then publishes to npm using
+[trusted publishing (OIDC)](https://docs.npmjs.com/trusted-publishers/) — no
+long-lived npm token is stored in the repository. Provenance attestations are
+generated automatically.
 
-> One-time setup: create an [npm automation token](https://docs.npmjs.com/creating-and-viewing-access-tokens)
-> and add it as a repository secret named `NPM_TOKEN`
-> (**Settings → Secrets and variables → Actions → New repository secret**).
+> **One-time setup on npmjs.com:** open the package's
+> **Settings → Trusted Publisher**, choose **GitHub Actions**, and configure:
+>
+> | Field | Value |
+> |---|---|
+> | Organization or user | `danmaps` |
+> | Repository | `webmap_ai` |
+> | Workflow filename | `release.yml` |
+> | Environment | _(leave blank)_ |
+>
+> You can add the trusted publisher before the package's first publish — just
+> enter the package name (`webmap_ai`) when prompted. The workflow already
+> requests the required `id-token: write` permission and upgrades npm to a
+> version that supports OIDC.
 
 To preview what would be published without releasing:
 
