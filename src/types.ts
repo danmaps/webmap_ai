@@ -46,7 +46,7 @@ export interface FeatureSample {
   id: string;
   layerId: string;
   properties: Record<string, unknown>;
-  geometry?: GeoJSON.Geometry;
+  geometry?: unknown;
 }
 
 export interface QueryVisibleFeaturesArgs {

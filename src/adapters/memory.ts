@@ -118,8 +118,9 @@ export class MemoryMapAssistantAdapter implements MapAssistantAdapter {
       return features;
     }
 
+    const rawIds = match[1] ?? "";
     const ids = new Set(
-      match[1]
+      rawIds
         .split(",")
         .map((entry) => entry.trim().replace(/^['"]|['"]$/g, ""))
         .filter(Boolean),
