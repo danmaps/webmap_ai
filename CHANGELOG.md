@@ -7,12 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-07-08
+
 ### Added
 
 - GitHub Actions CI workflow running `npm ci`, `npm run typecheck`, `npm run build`, and `npm test` on every push and pull request.
 - GitHub Actions release workflow that publishes to npm on `v*` version tags via OIDC trusted publishing (no stored token), gated by `npm publish --dry-run`.
 - Vitest runtime test suite covering `MapAssistantRouter` and the memory/MapLibre adapters.
 - `LICENSE` file (ISC) and completed `package.json` metadata (`author`, `publishConfig`).
+- Layer-list widget in the MapLibre demo with map-synced visibility toggles.
+
+### Changed
+
+- Polished and restructured the README: confident tone, documented the MapLibre adapter and demo app, added a live MapLibre usage example, and refreshed the status section.
 
 ## [0.1.0] - Unreleased
 
@@ -23,5 +30,6 @@ Initial scaffold:
 - FastAPI backend with LLM tool-calling support.
 - MapLibre demo app with an AI assistant panel.
 
-[Unreleased]: https://github.com/danmaps/webmap_ai/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/danmaps/webmap_ai/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/danmaps/webmap_ai/compare/v0.1.1...v0.1.2
 [0.1.0]: https://github.com/danmaps/webmap_ai/releases/tag/v0.1.0

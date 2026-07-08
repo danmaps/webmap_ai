@@ -4,13 +4,9 @@
 
 Provider-neutral AI assistant infrastructure for web maps.
 
-`webmap_ai` is meant to bring an ArcGIS Assistant-style interaction model to **non-Esri** maps without depending on Esri's AI components or map stack.
+`webmap_ai` brings an ArcGIS Assistant-style interaction model to **non-Esri** maps — without depending on Esri's AI components or map stack. It lets any web map expose a safe, typed, inspectable set of map-aware tools to an LLM.
 
-The goal is simple:
-
-> let any web map expose a safe, typed, inspectable set of map-aware tools to an LLM.
-
-Instead of binding the assistant to one provider, `webmap_ai` should make the assistant reusable across:
+The assistant is not tied to a single provider. The same tool router drives many map runtimes:
 
 - MapLibre
 - Leaflet
@@ -18,18 +14,9 @@ Instead of binding the assistant to one provider, `webmap_ai` should make the as
 - custom canvas maps
 - Three.js-based spatial scenes
 
-## Core idea
+## Architecture
 
-Copy the **pattern**, not the dependency.
-
-The ArcGIS sample pattern is:
-
-1. chat UI
-2. LLM orchestrator
-3. registered map-aware agents
-4. live reference to the current map
-
-`webmap_ai` should recreate that structure for open web maps through:
+`webmap_ai` is built from a few composable pieces:
 
 - a reusable assistant panel
 - a bounded tool router
@@ -37,13 +24,9 @@ The ArcGIS sample pattern is:
 - typed command schemas
 - inspectable backend query and action flows
 
-## Working thesis
+## The map adapter
 
-The most important abstraction is the **map adapter**.
-
-The adapter is the seam that lets the assistant talk to different map runtimes through one stable interface.
-
-Example shape:
+The **map adapter** is the seam that lets the assistant talk to different map runtimes through one stable interface. Implement it once per map library and the rest of the stack works unchanged:
 
 ```ts
 export interface MapAssistantAdapter {
@@ -60,19 +43,25 @@ export interface MapAssistantAdapter {
 }
 ```
 
-That gives the model a controlled toolbox instead of unrestricted UI control.
+This gives the model a controlled toolbox instead of unrestricted UI control.
 
-## First version (implemented)
+## What's included
 
-This repo now includes a first, provider-neutral TypeScript core:
+The provider-neutral TypeScript core:
 
 - `src/adapter.ts` — `MapAssistantAdapter` contract
 - `src/types.ts` — shared map/layer/query types
 - `src/tools.ts` — typed assistant tool-call schema
 - `src/router.ts` — bounded tool router/executor
 - `src/adapters/memory.ts` — in-memory adapter for local demos/tests
+- `src/adapters/maplibre.ts` — adapter that drives a live MapLibre map
 
-### Quick start
+A runnable MapLibre demo lives in [`demo/`](./demo), and a FastAPI backend for
+LLM tool-calling lives in [`backend/`](./backend).
+
+## Getting started
+
+### Install
 
 ```bash
 npm install
@@ -107,6 +96,47 @@ const response = await router.run({
   toolCalls: [{ name: "list_layers" }, { name: "get_map_state" }],
 });
 ```
+
+### With a live MapLibre map
+
+`MapLibreMapAssistantAdapter` wraps an existing MapLibre map instance, so the
+same router drives real map reads and writes:
+
+```ts
+import maplibregl from "maplibre-gl";
+import { MapAssistantRouter, MapLibreMapAssistantAdapter } from "webmap_ai";
+
+const map = new maplibregl.Map({
+  container: "map",
+  style: "https://demotiles.maplibre.org/style.json",
+  center: [-122, 37.5],
+  zoom: 9,
+});
+
+const adapter = new MapLibreMapAssistantAdapter(map);
+const router = new MapAssistantRouter(adapter);
+
+const response = await router.run({
+  message: "Zoom to the cities layer and tell me what's visible.",
+  toolCalls: [{ name: "get_map_state" }, { name: "list_layers" }],
+});
+```
+
+## Demo app
+
+A runnable MapLibre demo with a right-side assistant panel lives in
+[`demo/`](./demo):
+
+```bash
+cd demo
+npm install
+npm run dev
+```
+
+Then open **http://localhost:5173**. The demo works with no API key (keyword-based
+tool inference through the real router), or you can wire it to the FastAPI
+backend or an OpenRouter key for full LLM tool-calling. See
+[`demo/README.md`](./demo/README.md) for the options.
 
 ## Design principles
 
@@ -242,5 +272,7 @@ npm publish --dry-run
 
 ## Status
 
-Initial first-version scaffold implemented, including the FastAPI backend
-with LLM tool-calling support.
+Provider-neutral TypeScript core (router, tool schema, memory + MapLibre
+adapters), a FastAPI backend with LLM tool-calling, a MapLibre demo app, and a
+CI + trusted-publishing release pipeline. Read-only tools are the current focus,
+with reversible write actions rolling out behind explicit confirmation.
