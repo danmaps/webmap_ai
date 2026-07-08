@@ -1,0 +1,368 @@
+import { MapAssistantRouter, MapLibreMapAssistantAdapter } from "webmap_ai";
+import type { MapLibreMapLike } from "webmap_ai";
+import type { AssistantResponse, MapAssistantToolCall } from "webmap_ai";
+
+export interface ChatMessage {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  toolResults?: AssistantResponse["toolResults"];
+  isLoading?: boolean;
+}
+
+const TOOL_DEFINITIONS = [
+  {
+    type: "function",
+    function: {
+      name: "list_layers",
+      description: "List all available map layers with their visibility status.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_map_state",
+      description:
+        "Get current map state including bounding box, center, zoom level, bearing, pitch, and selected feature IDs.",
+      parameters: { type: "object", properties: {} },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_layer_schema",
+      description: "Get the schema (fields/columns) for a specific layer.",
+      parameters: {
+        type: "object",
+        properties: {
+          layerId: { type: "string", description: "The ID of the layer to inspect." },
+        },
+        required: ["layerId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "query_visible_features",
+      description: "Query features currently visible on the map for a specific layer.",
+      parameters: {
+        type: "object",
+        properties: {
+          layerId: { type: "string", description: "The layer to query." },
+          limit: { type: "number", description: "Maximum number of features to return." },
+        },
+        required: ["layerId"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_layer_visibility",
+      description: "Show or hide a map layer.",
+      parameters: {
+        type: "object",
+        properties: {
+          layerId: { type: "string", description: "The layer to show or hide." },
+          visible: { type: "boolean", description: "True to show, false to hide." },
+        },
+        required: ["layerId", "visible"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "set_view",
+      description: "Pan or zoom the map to a specific location.",
+      parameters: {
+        type: "object",
+        properties: {
+          zoom: { type: "number", description: "Zoom level (0–22)." },
+          center: {
+            type: "object",
+            description: "Map center as {lng, lat}.",
+            properties: {
+              lng: { type: "number" },
+              lat: { type: "number" },
+            },
+          },
+        },
+      },
+    },
+  },
+];
+
+function parseToolCall(name: string, argsJson: string): MapAssistantToolCall | null {
+  try {
+    const args = argsJson ? (JSON.parse(argsJson) as Record<string, unknown>) : {};
+    switch (name) {
+      case "list_layers":
+        return { name: "list_layers" };
+      case "get_map_state":
+        return { name: "get_map_state" };
+      case "get_layer_schema":
+        return { name: "get_layer_schema", args: { layerId: String(args["layerId"] ?? "") } };
+      case "query_visible_features":
+        return {
+          name: "query_visible_features",
+          args: {
+            layerId: String(args["layerId"] ?? ""),
+            limit: typeof args["limit"] === "number" ? args["limit"] : undefined,
+          },
+        };
+      case "set_layer_visibility":
+        return {
+          name: "set_layer_visibility",
+          args: { layerId: String(args["layerId"] ?? ""), visible: Boolean(args["visible"]) },
+        };
+      case "set_view": {
+        const center =
+          args["center"] && typeof args["center"] === "object" && !Array.isArray(args["center"])
+            ? (args["center"] as { lng?: number; lat?: number })
+            : undefined;
+        return {
+          name: "set_view",
+          args: {
+            zoom: typeof args["zoom"] === "number" ? args["zoom"] : undefined,
+            center:
+              center && typeof center.lng === "number" && typeof center.lat === "number"
+                ? { lng: center.lng, lat: center.lat }
+                : undefined,
+          },
+        };
+      }
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+function inferToolCalls(message: string): MapAssistantToolCall[] {
+  const lower = message.toLowerCase();
+  const calls: MapAssistantToolCall[] = [];
+
+  calls.push({ name: "get_map_state" });
+  calls.push({ name: "list_layers" });
+
+  if (lower.includes("cities") || lower.includes("city")) {
+    calls.push({ name: "query_visible_features", args: { layerId: "cities", limit: 5 } });
+  }
+  if (lower.includes("region") || lower.includes("area")) {
+    calls.push({ name: "query_visible_features", args: { layerId: "regions", limit: 5 } });
+  }
+  if (lower.includes("highway") || lower.includes("route") || lower.includes("road")) {
+    calls.push({ name: "query_visible_features", args: { layerId: "routes", limit: 3 } });
+  }
+
+  return calls;
+}
+
+function formatToolResultsAsText(response: AssistantResponse): string {
+  const lines: string[] = [];
+
+  for (const result of response.toolResults) {
+    if (!result.ok) {
+      lines.push(`⚠️ **${result.name}** failed: ${result.error ?? "unknown error"}`);
+      continue;
+    }
+    switch (result.name) {
+      case "get_map_state": {
+        const state = result.data as {
+          zoom?: number;
+          center?: { lng: number; lat: number };
+          bounds?: { west: number; south: number; east: number; north: number };
+          selectedFeatureIds?: string[];
+        };
+        lines.push(
+          `📍 **Map state** — zoom: ${(state.zoom ?? 0).toFixed(1)}, ` +
+            `center: ${(state.center?.lng ?? 0).toFixed(2)}°, ${(state.center?.lat ?? 0).toFixed(2)}°`,
+        );
+        break;
+      }
+      case "list_layers": {
+        const layers = result.data as Array<{ id: string; name: string; visible: boolean }>;
+        const summary = layers.map((l) => `${l.visible ? "👁" : "○"} ${l.name}`).join("  |  ");
+        lines.push(`🗂 **Layers** — ${summary}`);
+        break;
+      }
+      case "query_visible_features": {
+        const features = result.data as Array<{ id: string; properties: Record<string, unknown> }>;
+        const count = features.length;
+        const sample = features
+          .slice(0, 3)
+          .map((f) => {
+            const name = f.properties["name"] ?? f.id;
+            return String(name);
+          })
+          .join(", ");
+        lines.push(`🔍 **Visible features** (${count}) — ${sample}${count > 3 ? "…" : ""}`);
+        break;
+      }
+      case "get_layer_schema": {
+        const schema = result.data as { layerId: string; fields: Array<{ name: string; type: string }> };
+        const fields = schema.fields.map((f) => `${f.name}:${f.type}`).join(", ");
+        lines.push(`📋 **Schema for ${schema.layerId}** — ${fields}`);
+        break;
+      }
+      case "set_layer_visibility":
+        lines.push(`✅ Layer visibility updated.`);
+        break;
+      case "set_view":
+        lines.push(`✅ Map view updated.`);
+        break;
+      default:
+        lines.push(`✅ **${result.name}** completed.`);
+    }
+  }
+
+  return lines.join("\n");
+}
+
+function buildMockReply(message: string, toolSummary: string): string {
+  const lower = message.toLowerCase();
+
+  if (lower.includes("layer") || lower.includes("what") || lower.includes("show")) {
+    return (
+      `Here's what I can see on the map:\n\n${toolSummary}\n\n` +
+      `The demo map shows three layers: **US Regions** (colored polygons), ` +
+      `**Interstate Highways** (yellow lines), and **Major US Cities** (red dots). ` +
+      `You can ask me to hide a layer, zoom to a city, or describe what's visible.`
+    );
+  }
+  if (lower.includes("city") || lower.includes("cities")) {
+    return `${toolSummary}\n\nThe cities layer shows 15 major US cities. Each city marker includes its name, state, and population.`;
+  }
+  if (lower.includes("zoom") || lower.includes("pan") || lower.includes("view")) {
+    return `${toolSummary}\n\nI can adjust the map view — try asking me to zoom in on a specific city or region.`;
+  }
+  return (
+    `${toolSummary}\n\n` +
+    `I'm your map assistant. I can describe the current map state, list or query layers, ` +
+    `toggle layer visibility, or adjust the view. What would you like to know?`
+  );
+}
+
+export class AssistantService {
+  private adapter: MapLibreMapAssistantAdapter;
+  private router: MapAssistantRouter;
+  private apiKey: string | undefined;
+
+  public constructor(map: MapLibreMapLike) {
+    this.adapter = new MapLibreMapAssistantAdapter(map);
+    this.router = new MapAssistantRouter(this.adapter);
+    const key = import.meta.env["VITE_OPENROUTER_API_KEY"] as string | undefined;
+    this.apiKey = key && key.trim() !== "" ? key.trim() : undefined;
+  }
+
+  public async send(userMessage: string): Promise<ChatMessage> {
+    if (this.apiKey) {
+      return this.sendViaOpenRouter(userMessage);
+    }
+    return this.sendViaMock(userMessage);
+  }
+
+  private async sendViaOpenRouter(userMessage: string): Promise<ChatMessage> {
+    const mapState = await this.adapter.getMapState();
+    const layers = await this.adapter.listLayers();
+
+    const systemPrompt = [
+      "You are a map assistant embedded in a MapLibre web map.",
+      "Use the available tools to answer questions about the map accurately.",
+      "",
+      "Current map context:",
+      `- Zoom: ${mapState.zoom.toFixed(1)}`,
+      `- Center: ${mapState.center.lng.toFixed(3)}°, ${mapState.center.lat.toFixed(3)}°`,
+      `- Bounds: W${mapState.bounds.west.toFixed(2)} S${mapState.bounds.south.toFixed(2)} E${mapState.bounds.east.toFixed(2)} N${mapState.bounds.north.toFixed(2)}`,
+      `- Visible layers: ${layers
+        .filter((l) => l.visible)
+        .map((l) => l.name)
+        .join(", ")}`,
+      `- Selected features: ${mapState.selectedFeatureIds.length > 0 ? mapState.selectedFeatureIds.join(", ") : "none"}`,
+      "",
+      "Respond concisely. Use tools when you need fresh data from the map.",
+    ].join("\n");
+
+    const body = {
+      model: "openai/gpt-4o-mini",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMessage },
+      ],
+      tools: TOOL_DEFINITIONS,
+      tool_choice: "auto",
+    };
+
+    const resp = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        Authorization: "Bearer " + this.apiKey,
+        "Content-Type": "application/json",
+        "HTTP-Referer": window.location.origin,
+        "X-Title": "webmap_ai demo",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`OpenRouter error ${resp.status}: ${errText}`);
+    }
+
+    const json = (await resp.json()) as {
+      choices: Array<{
+        message: {
+          content?: string;
+          tool_calls?: Array<{
+            function: { name: string; arguments: string };
+          }>;
+        };
+      }>;
+    };
+
+    const choice = json.choices[0];
+    if (!choice) throw new Error("Empty response from OpenRouter");
+
+    const toolCalls: MapAssistantToolCall[] = (choice.message.tool_calls ?? [])
+      .map((tc) => parseToolCall(tc.function.name, tc.function.arguments))
+      .filter((tc): tc is MapAssistantToolCall => tc !== null);
+
+    let toolResults: AssistantResponse["toolResults"] = [];
+    let toolSummary = "";
+
+    if (toolCalls.length > 0) {
+      const routerResponse = await this.router.run({ message: userMessage, toolCalls });
+      toolResults = routerResponse.toolResults;
+      toolSummary = formatToolResultsAsText(routerResponse);
+    }
+
+    const text = choice.message.content ?? toolSummary;
+
+    return {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: text || "(No text response)",
+      toolResults: toolResults.length > 0 ? toolResults : undefined,
+    };
+  }
+
+  private async sendViaMock(userMessage: string): Promise<ChatMessage> {
+    await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const toolCalls = inferToolCalls(userMessage);
+    const routerResponse = await this.router.run({ message: userMessage, toolCalls });
+    const toolSummary = formatToolResultsAsText(routerResponse);
+    const text = buildMockReply(userMessage, toolSummary);
+
+    return {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: text,
+      toolResults: routerResponse.toolResults,
+    };
+  }
+}
