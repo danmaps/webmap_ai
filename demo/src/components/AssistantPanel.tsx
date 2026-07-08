@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import type React from "react";
 import type { AssistantService, ChatMessage } from "../lib/assistant";
 import "./AssistantPanel.css";
 
@@ -20,29 +21,44 @@ const WELCOME: ChatMessage = {
       : "🟡 No API key set — using mock responses. Add `VITE_OPENROUTER_API_KEY` to `demo/.env` for live AI."),
 };
 
+function renderInline(text: string): React.ReactNode[] {
+  // Parse **bold**, *italic*, and `code` into React elements without innerHTML
+  const parts: React.ReactNode[] = [];
+  const pattern = /\*\*(.+?)\*\*|\*(.+?)\*|`(.+?)`/g;
+  let last = 0;
+  let match;
+
+  while ((match = pattern.exec(text)) !== null) {
+    if (match.index > last) {
+      parts.push(text.slice(last, match.index));
+    }
+    if (match[1] !== undefined) {
+      parts.push(<strong key={match.index}>{match[1]}</strong>);
+    } else if (match[2] !== undefined) {
+      parts.push(<em key={match.index}>{match[2]}</em>);
+    } else if (match[3] !== undefined) {
+      parts.push(<code key={match.index}>{match[3]}</code>);
+    }
+    last = pattern.lastIndex;
+  }
+
+  if (last < text.length) {
+    parts.push(text.slice(last));
+  }
+
+  return parts;
+}
+
 function renderContent(text: string) {
-  // Very simple markdown-like rendering for bold and bullet points
   const lines = text.split("\n");
   return lines.map((line, i) => {
     const key = i;
     if (line.startsWith("- ") || line.startsWith("* ")) {
-      const inner = line.slice(2);
-      return (
-        <li key={key} dangerouslySetInnerHTML={{ __html: formatInline(inner) }} />
-      );
+      return <li key={key}>{renderInline(line.slice(2))}</li>;
     }
     if (line === "") return <br key={key} />;
-    return (
-      <p key={key} dangerouslySetInnerHTML={{ __html: formatInline(line) }} />
-    );
+    return <p key={key}>{renderInline(line)}</p>;
   });
-}
-
-function formatInline(text: string): string {
-  return text
-    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
-    .replace(/\*(.+?)\*/g, "<em>$1</em>")
-    .replace(/`(.+?)`/g, "<code>$1</code>");
 }
 
 export function AssistantPanel({ service }: AssistantPanelProps) {
