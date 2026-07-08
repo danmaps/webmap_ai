@@ -1,6 +1,6 @@
 import { MapAssistantRouter, MapLibreMapAssistantAdapter } from "webmap_ai";
 import type { MapLibreMapLike } from "webmap_ai";
-import type { AssistantResponse, MapAssistantToolCall } from "webmap_ai";
+import type { AssistantResponse, MapAssistantToolCall, QueryFeaturesArgs, SetFilterArgs } from "webmap_ai";
 
 export interface ChatMessage {
   id: string;
@@ -94,6 +94,73 @@ const TOOL_DEFINITIONS = [
     },
   },
 ];
+
+function parseBackendToolCall(name: string, args: Record<string, unknown>): MapAssistantToolCall | null {
+  switch (name) {
+    case "list_layers":
+      return { name: "list_layers" };
+    case "get_map_state":
+      return { name: "get_map_state" };
+    case "clear_selection":
+      return { name: "clear_selection" };
+    case "get_layer_schema":
+      return { name: "get_layer_schema", args: { layerId: String(args["layerId"] ?? "") } };
+    case "query_visible_features":
+      return {
+        name: "query_visible_features",
+        args: {
+          layerId: String(args["layerId"] ?? ""),
+          limit: typeof args["limit"] === "number" ? args["limit"] : undefined,
+        },
+      };
+    case "query_features": {
+      const qfArgs: QueryFeaturesArgs = {
+        layerId: String(args["layerId"] ?? ""),
+        where: typeof args["where"] === "string" ? args["where"] : undefined,
+        limit: typeof args["limit"] === "number" ? args["limit"] : undefined,
+      };
+      return { name: "query_features", args: qfArgs };
+    }
+    case "set_layer_visibility":
+      return {
+        name: "set_layer_visibility",
+        args: { layerId: String(args["layerId"] ?? ""), visible: Boolean(args["visible"]) },
+      };
+    case "set_view": {
+      const c =
+        args["center"] && typeof args["center"] === "object" && !Array.isArray(args["center"])
+          ? (args["center"] as { lng?: number; lat?: number })
+          : undefined;
+      return {
+        name: "set_view",
+        args: {
+          zoom: typeof args["zoom"] === "number" ? args["zoom"] : undefined,
+          center:
+            c && typeof c.lng === "number" && typeof c.lat === "number"
+              ? { lng: c.lng, lat: c.lat }
+              : undefined,
+        },
+      };
+    }
+    case "select_features":
+      return {
+        name: "select_features",
+        args: {
+          layerId: String(args["layerId"] ?? ""),
+          featureIds: Array.isArray(args["featureIds"]) ? args["featureIds"].map(String) : [],
+        },
+      };
+    case "set_filter": {
+      const sfArgs: SetFilterArgs = {
+        layerId: String(args["layerId"] ?? ""),
+        where: typeof args["where"] === "string" ? args["where"] : "",
+      };
+      return { name: "set_filter", args: sfArgs };
+    }
+    default:
+      return null;
+  }
+}
 
 function parseToolCall(name: string, argsJson: string): MapAssistantToolCall | null {
   try {
@@ -251,19 +318,81 @@ export class AssistantService {
   private adapter: MapLibreMapAssistantAdapter;
   private router: MapAssistantRouter;
   private apiKey: string | undefined;
+  private backendUrl: string | undefined;
 
   public constructor(map: MapLibreMapLike) {
     this.adapter = new MapLibreMapAssistantAdapter(map);
     this.router = new MapAssistantRouter(this.adapter);
+    const backendUrl = import.meta.env["VITE_BACKEND_URL"] as string | undefined;
+    this.backendUrl = backendUrl && backendUrl.trim() !== "" ? backendUrl.trim().replace(/\/$/, "") : undefined;
     const key = import.meta.env["VITE_OPENROUTER_API_KEY"] as string | undefined;
     this.apiKey = key && key.trim() !== "" ? key.trim() : undefined;
   }
 
   public async send(userMessage: string): Promise<ChatMessage> {
+    if (this.backendUrl) {
+      return this.sendViaBackend(userMessage);
+    }
     if (this.apiKey) {
       return this.sendViaOpenRouter(userMessage);
     }
     return this.sendViaMock(userMessage);
+  }
+
+  private async sendViaBackend(userMessage: string): Promise<ChatMessage> {
+    const mapState = await this.adapter.getMapState();
+    const layers = await this.adapter.listLayers();
+
+    const mapContext = {
+      bbox: {
+        west: mapState.bounds.west,
+        south: mapState.bounds.south,
+        east: mapState.bounds.east,
+        north: mapState.bounds.north,
+      },
+      center: { lng: mapState.center.lng, lat: mapState.center.lat },
+      zoom: mapState.zoom,
+      visible_layers: layers.filter((l) => l.visible).map((l) => l.id),
+      selected_feature_ids: mapState.selectedFeatureIds,
+    };
+
+    const resp = await fetch(`${this.backendUrl}/chat`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: userMessage, map_context: mapContext }),
+    });
+
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(`Backend error ${resp.status}: ${errText}`);
+    }
+
+    const json = (await resp.json()) as {
+      text: string;
+      tool_calls: Array<{ name: string; args: Record<string, unknown> }>;
+    };
+
+    const toolCalls: MapAssistantToolCall[] = (json.tool_calls ?? [])
+      .map((tc) => parseBackendToolCall(tc.name, tc.args ?? {}))
+      .filter((tc): tc is MapAssistantToolCall => tc !== null);
+
+    let toolResults: AssistantResponse["toolResults"] = [];
+    let toolSummary = "";
+
+    if (toolCalls.length > 0) {
+      const routerResponse = await this.router.run({ message: userMessage, toolCalls });
+      toolResults = routerResponse.toolResults;
+      toolSummary = formatToolResultsAsText(routerResponse);
+    }
+
+    const text = json.text || toolSummary || "(No response)";
+
+    return {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: text,
+      toolResults: toolResults.length > 0 ? toolResults : undefined,
+    };
   }
 
   private async sendViaOpenRouter(userMessage: string): Promise<ChatMessage> {

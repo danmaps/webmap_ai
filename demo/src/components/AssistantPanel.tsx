@@ -16,9 +16,11 @@ const WELCOME: ChatMessage = {
     "- *What layers are loaded?*\n" +
     "- *What cities are visible?*\n" +
     "- *Tell me about the current map state.*\n\n" +
-    (import.meta.env["VITE_OPENROUTER_API_KEY"]
-      ? "🟢 OpenRouter API key detected — using live LLM."
-      : "🟡 No API key set — using mock responses. Add `VITE_OPENROUTER_API_KEY` to `demo/.env` for live AI."),
+    (import.meta.env["VITE_BACKEND_URL"]
+      ? "🟢 Backend URL detected — routing chat through the FastAPI backend."
+      : import.meta.env["VITE_OPENROUTER_API_KEY"]
+        ? "🟢 OpenRouter API key detected — using live LLM."
+        : "🟡 No API key or backend set — using mock responses. Add `VITE_BACKEND_URL` (FastAPI) or `VITE_OPENROUTER_API_KEY` to `demo/.env` for live AI."),
 };
 
 function renderInline(text: string): React.ReactNode[] {

@@ -20,19 +20,40 @@ Then open **http://localhost:5173**.
 | Interstate Highways | line | I-10, I-80, I-95 routes |
 | Major US Cities | circle + labels | 15 largest US cities with population |
 
-## OpenRouter API key (optional)
+## AI backend options
 
-Copy `.env.example` to `.env` and add your key:
+The assistant picks the first configured option, in priority order:
+
+### Option 1 — FastAPI backend (recommended)
+
+The `backend/` directory (repo root) provides a FastAPI server that handles LLM tool-calling with full map context.
+
+```bash
+# In one terminal — start the backend
+cd ..
+pip install -r requirements.txt
+cp .env.example .env       # add OPENAI_API_KEY or ANTHROPIC_API_KEY
+uvicorn backend.main:app --reload
+
+# In another terminal — start the demo
+cd demo
+cp .env.example .env       # set VITE_BACKEND_URL=http://localhost:8000
+npm run dev
+```
+
+### Option 2 — OpenRouter (browser-side)
+
+Calls OpenAI-compatible models directly from the browser via [OpenRouter](https://openrouter.ai).
 
 ```bash
 cp .env.example .env
-# then edit .env and set VITE_OPENROUTER_API_KEY=sk-or-...
+# Edit .env and set VITE_OPENROUTER_API_KEY=sk-or-...
+npm run dev
 ```
 
-Get a key at <https://openrouter.ai/keys>. Without a key the assistant uses
-**mock responses** that still run every tool call through the real
-`MapAssistantRouter`, so the router/adapter contract is exercised even without
-an API key.
+### Option 3 — Mock responses (no key required)
+
+Without any key or backend URL the assistant uses keyword-based tool inference and runs every call through the real `MapAssistantRouter` — the router/adapter contract is exercised even without an API key.
 
 ## How it works
 
@@ -41,8 +62,9 @@ User message
     │
     ▼
 AssistantService
-    ├─ (no key) infer tool calls from message text
-    └─ (key set) call OpenRouter → parse tool_calls from response
+    ├─ VITE_BACKEND_URL set  → POST /chat {message, map_context} → {text, tool_calls}
+    ├─ VITE_OPENROUTER_API_KEY set → call OpenRouter → parse tool_calls from response
+    └─ neither → infer tool calls from message keywords
           │
           ▼
     MapAssistantRouter.run({ message, toolCalls })
