@@ -324,7 +324,8 @@ export class AssistantService {
     this.adapter = new MapLibreMapAssistantAdapter(map);
     this.router = new MapAssistantRouter(this.adapter);
     const backendUrl = import.meta.env["VITE_BACKEND_URL"] as string | undefined;
-    this.backendUrl = backendUrl && backendUrl.trim() !== "" ? backendUrl.trim().replace(/\/$/, "") : undefined;
+    const trimmedBackendUrl = backendUrl?.trim();
+    this.backendUrl = trimmedBackendUrl ? trimmedBackendUrl.replace(/\/$/, "") : undefined;
     const key = import.meta.env["VITE_OPENROUTER_API_KEY"] as string | undefined;
     this.apiKey = key && key.trim() !== "" ? key.trim() : undefined;
   }
