@@ -302,6 +302,17 @@ do all map interactions.
 
 ### Running tests
 
+TypeScript package (router + adapters), powered by [Vitest](https://vitest.dev):
+
+```bash
+npm install
+npm run typecheck   # type-only check (no emit)
+npm test            # run the runtime test suite
+npm run test:watch  # watch mode during development
+```
+
+Python backend:
+
 ```bash
 python -m pytest backend/tests/ -v
 ```
