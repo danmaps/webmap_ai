@@ -13,7 +13,8 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "check": "npm run typecheck && npm run test"
+    "check": "npm run typecheck && npm run test",
+    "prepublishOnly": "npm run build"
   },
   "repository": {
     "type": "git",
@@ -25,8 +26,11 @@
     "assistant",
     "typescript"
   ],
-  "author": "",
+  "author": "Danny McVey <dannybmcvey@gmail.com> (https://github.com/danmaps)",
   "license": "ISC",
+  "publishConfig": {
+    "access": "public"
+  },
   "bugs": {
     "url": "https://github.com/danmaps/webmap_ai/issues"
   },

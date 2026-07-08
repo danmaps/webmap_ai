@@ -1,5 +1,7 @@
 # webmap_ai
 
+[![CI](https://github.com/danmaps/webmap_ai/actions/workflows/ci.yml/badge.svg)](https://github.com/danmaps/webmap_ai/actions/workflows/ci.yml)
+
 Provider-neutral AI assistant infrastructure for web maps.
 
 `webmap_ai` is meant to bring an ArcGIS Assistant-style interaction model to **non-Esri** maps without depending on Esri's AI components or map stack.
@@ -315,6 +317,36 @@ Python backend:
 
 ```bash
 python -m pytest backend/tests/ -v
+```
+
+## Releasing
+
+Continuous integration (`.github/workflows/ci.yml`) runs `npm ci`, `typecheck`,
+`build`, and `test` on every push and pull request.
+
+Publishing to npm is automated by `.github/workflows/release.yml` and triggered
+by pushing a version tag:
+
+```bash
+# 1. Bump the version and create a matching git tag
+npm version patch        # or: minor / major
+
+# 2. Push the commit and the tag
+git push --follow-tags
+```
+
+The release workflow re-runs the build and tests, validates the package with
+`npm publish --dry-run`, then publishes using the `NPM_TOKEN` repository secret.
+
+> One-time setup: create an [npm automation token](https://docs.npmjs.com/creating-and-viewing-access-tokens)
+> and add it as a repository secret named `NPM_TOKEN`
+> (**Settings → Secrets and variables → Actions → New repository secret**).
+
+To preview what would be published without releasing:
+
+```bash
+npm run build
+npm publish --dry-run
 ```
 
 ## Status
