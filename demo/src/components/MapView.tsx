@@ -2,10 +2,80 @@ import { useEffect, useRef } from "react";
 import maplibregl from "maplibre-gl";
 import type { MapLibreMapLike } from "webmap_ai";
 import { DEMO_LAYERS } from "../lib/layers";
+import type { GeoJSON } from "geojson";
 import "./MapView.css";
 
 interface MapViewProps {
   onMapReady: (map: MapLibreMapLike) => void;
+}
+
+// Human-readable labels for property keys shown in popups.
+const FIELD_LABELS: Record<string, string> = {
+  name: "Name",
+  state: "State",
+  population: "Population",
+  rank: "Population rank",
+  founded: "Founded",
+  timezone: "Time zone",
+  area_sq_mi: "Area (sq mi)",
+  region: "Region",
+  states: "States",
+  largest_city: "Largest city",
+  highway: "Highway",
+  direction: "Direction",
+  length_mi: "Length (mi)",
+  states_served: "States served",
+};
+
+function formatValue(key: string, value: unknown): string {
+  if (value == null) return "—";
+  if (typeof value === "number") {
+    if (key === "population" || key === "length_mi" || key === "area_sq_mi") {
+      return value.toLocaleString("en-US");
+    }
+    if (key === "rank") return `#${value}`;
+    return String(value);
+  }
+  return String(value);
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function popupHtml(properties: Record<string, unknown>): string {
+  const title = escapeHtml(String(properties.name ?? "Feature"));
+  const rows = Object.entries(properties)
+    .filter(([key]) => key !== "name" && key !== "id")
+    .map(([key, value]) => {
+      const label = escapeHtml(FIELD_LABELS[key] ?? key);
+      const val = escapeHtml(formatValue(key, value));
+      return `<tr><th>${label}</th><td>${val}</td></tr>`;
+    })
+    .join("");
+  return `<div class="feature-popup"><h3>${title}</h3><table>${rows}</table></div>`;
+}
+
+// MapLibre drops non-numeric feature ids from query results. Copy each
+// feature's top-level id into its properties so the assistant (and
+// feature-state) can reference features by a stable id.
+function withPromotedIds(data: GeoJSON): GeoJSON {
+  if (data.type !== "FeatureCollection") return data;
+  return {
+    ...data,
+    features: data.features.map((feature) =>
+      feature.id === undefined || feature.id === null
+        ? feature
+        : {
+            ...feature,
+            properties: { id: feature.id, ...(feature.properties ?? {}) },
+          },
+    ),
+  };
 }
 
 export function MapView({ onMapReady }: MapViewProps) {
@@ -51,7 +121,11 @@ export function MapView({ onMapReady }: MapViewProps) {
 
     map.on("load", () => {
       for (const layer of DEMO_LAYERS) {
-        map.addSource(layer.id, { type: "geojson", data: layer.geojson });
+        map.addSource(layer.id, {
+          type: "geojson",
+          data: withPromotedIds(layer.geojson),
+          promoteId: "id",
+        });
 
         map.addLayer({
           id: layer.id,
@@ -88,13 +162,32 @@ export function MapView({ onMapReady }: MapViewProps) {
       onMapReady(map as unknown as MapLibreMapLike);
     });
 
-    // Hover effect on cities
-    map.on("mouseenter", "cities", () => {
-      map.getCanvas().style.cursor = "pointer";
+    // Interactive popups + hover cursor on every data layer.
+    const interactiveLayers = DEMO_LAYERS.map((layer) => layer.id);
+    const popup = new maplibregl.Popup({
+      closeButton: true,
+      closeOnClick: true,
+      maxWidth: "280px",
     });
-    map.on("mouseleave", "cities", () => {
-      map.getCanvas().style.cursor = "";
-    });
+
+    for (const layerId of interactiveLayers) {
+      map.on("click", layerId, (e) => {
+        const feature = e.features?.[0];
+        if (!feature) return;
+        const props = (feature.properties ?? {}) as Record<string, unknown>;
+        popup
+          .setLngLat(e.lngLat)
+          .setHTML(popupHtml(props))
+          .addTo(map);
+      });
+
+      map.on("mouseenter", layerId, () => {
+        map.getCanvas().style.cursor = "pointer";
+      });
+      map.on("mouseleave", layerId, () => {
+        map.getCanvas().style.cursor = "";
+      });
+    }
 
     return () => {
       map.remove();

@@ -10,6 +10,26 @@ export interface ChatMessage {
   isLoading?: boolean;
 }
 
+interface OpenRouterToolCall {
+  id: string;
+  type?: string;
+  function: { name: string; arguments: string };
+}
+
+interface OpenRouterMessage {
+  role: "system" | "user" | "assistant" | "tool";
+  content: string | null;
+  tool_calls?: OpenRouterToolCall[];
+  tool_call_id?: string;
+}
+
+interface OpenRouterChoice {
+  message: {
+    content?: string;
+    tool_calls?: OpenRouterToolCall[];
+  };
+}
+
 const TOOL_DEFINITIONS = [
   {
     type: "function",
@@ -409,6 +429,7 @@ export class AssistantService {
     const systemPrompt = [
       "You are a map assistant embedded in a MapLibre web map.",
       "Use the available tools to answer questions about the map accurately.",
+      "After calling tools, read the returned data and give a direct, natural-language answer to the user's question.",
       "",
       "Current map context:",
       `- Zoom: ${mapState.zoom.toFixed(1)}`,
@@ -423,12 +444,80 @@ export class AssistantService {
       "Respond concisely. Use tools when you need fresh data from the map.",
     ].join("\n");
 
+    const messages: OpenRouterMessage[] = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userMessage },
+    ];
+
+    const allToolResults: AssistantResponse["toolResults"] = [];
+    const MAX_ROUNDS = 5;
+
+    for (let round = 0; round < MAX_ROUNDS; round++) {
+      const choice = await this.callOpenRouter(messages);
+      const rawToolCalls = choice.message.tool_calls ?? [];
+
+      // No tool calls => the model produced its final answer.
+      if (rawToolCalls.length === 0) {
+        return {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: choice.message.content || "(No text response)",
+          toolResults: allToolResults.length > 0 ? allToolResults : undefined,
+        };
+      }
+
+      // Record the model's tool-call turn in the conversation.
+      messages.push({
+        role: "assistant",
+        content: choice.message.content ?? "",
+        tool_calls: rawToolCalls,
+      });
+
+      // Parse each requested call (keeping alignment with its tool_call id).
+      const parsed = rawToolCalls.map((tc) => ({
+        id: tc.id,
+        call: parseToolCall(tc.function.name, tc.function.arguments),
+      }));
+      const validCalls = parsed
+        .map((p) => p.call)
+        .filter((c): c is MapAssistantToolCall => c !== null);
+
+      const routerResponse =
+        validCalls.length > 0
+          ? await this.router.run({ message: userMessage, toolCalls: validCalls })
+          : { toolResults: [] as AssistantResponse["toolResults"] };
+      allToolResults.push(...routerResponse.toolResults);
+
+      // Feed each tool result back to the model, matched by tool_call id.
+      let resultIndex = 0;
+      for (const p of parsed) {
+        let content: string;
+        if (p.call) {
+          const result = routerResponse.toolResults[resultIndex++];
+          content = JSON.stringify(
+            result?.ok ? result.data : { error: result?.error ?? "unknown error" },
+          );
+        } else {
+          content = JSON.stringify({ error: "Unsupported or unrecognized tool call." });
+        }
+        messages.push({ role: "tool", tool_call_id: p.id, content });
+      }
+    }
+
+    // Safety fallback if the model kept calling tools without answering.
+    return {
+      id: crypto.randomUUID(),
+      role: "assistant",
+      content: formatToolResultsAsText({ toolResults: allToolResults } as AssistantResponse) ||
+        "(No response after tool calls)",
+      toolResults: allToolResults.length > 0 ? allToolResults : undefined,
+    };
+  }
+
+  private async callOpenRouter(messages: OpenRouterMessage[]): Promise<OpenRouterChoice> {
     const body = {
       model: OPENROUTER_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userMessage },
-      ],
+      messages,
       tools: TOOL_DEFINITIONS,
       tool_choice: "auto",
     };
@@ -449,41 +538,10 @@ export class AssistantService {
       throw new Error(`OpenRouter error ${resp.status}: ${errText}`);
     }
 
-    const json = (await resp.json()) as {
-      choices: Array<{
-        message: {
-          content?: string;
-          tool_calls?: Array<{
-            function: { name: string; arguments: string };
-          }>;
-        };
-      }>;
-    };
-
+    const json = (await resp.json()) as { choices: OpenRouterChoice[] };
     const choice = json.choices[0];
     if (!choice) throw new Error("Empty response from OpenRouter");
-
-    const toolCalls: MapAssistantToolCall[] = (choice.message.tool_calls ?? [])
-      .map((tc) => parseToolCall(tc.function.name, tc.function.arguments))
-      .filter((tc): tc is MapAssistantToolCall => tc !== null);
-
-    let toolResults: AssistantResponse["toolResults"] = [];
-    let toolSummary = "";
-
-    if (toolCalls.length > 0) {
-      const routerResponse = await this.router.run({ message: userMessage, toolCalls });
-      toolResults = routerResponse.toolResults;
-      toolSummary = formatToolResultsAsText(routerResponse);
-    }
-
-    const text = choice.message.content ?? toolSummary;
-
-    return {
-      id: crypto.randomUUID(),
-      role: "assistant",
-      content: text || "(No text response)",
-      toolResults: toolResults.length > 0 ? toolResults : undefined,
-    };
+    return choice;
   }
 
   private async sendViaMock(userMessage: string): Promise<ChatMessage> {
