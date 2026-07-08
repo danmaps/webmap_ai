@@ -40,6 +40,7 @@ export interface AssistantResponse {
   toolResults: Array<{
     name: MapAssistantToolName;
     ok: boolean;
+    sql?: string;
     data?: unknown;
     error?: string;
   }>;
