@@ -67,7 +67,7 @@ def _get_provider() -> LLMProvider:
     return _provider
 
 
-def set_provider(provider: LLMProvider) -> None:
+def set_provider(provider: LLMProvider | None) -> None:
     """Replace the global provider – useful in tests and dependency injection."""
     global _provider
     _provider = provider

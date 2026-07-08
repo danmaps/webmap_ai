@@ -42,7 +42,7 @@ class StubProvider(LLMProvider):
 def reset_provider():
     """Ensure the global provider is reset between tests."""
     yield
-    set_provider(None)  # type: ignore[arg-type]
+    set_provider(None)
 
 
 @pytest.fixture()
@@ -172,7 +172,7 @@ def test_chat_multiple_tool_calls(client: TestClient) -> None:
 
 def test_chat_no_provider_returns_503(client: TestClient) -> None:
     # Clear provider and ensure env vars don't create a real one
-    set_provider(None)  # type: ignore[arg-type]
+    set_provider(None)
     with patch.dict("os.environ", {"LLM_PROVIDER": "openai"}, clear=False):
         # Patch OpenAIProvider to raise ValueError (simulates missing API key)
         with patch("backend.main._get_provider", side_effect=ValueError("no key")):
