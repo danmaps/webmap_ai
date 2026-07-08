@@ -4,3 +4,10 @@
   width: 100vw;
   overflow: hidden;
 }
+
+.map-region {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+}
