@@ -238,14 +238,81 @@ Best first milestone:
 
 That is enough to prove the interaction model without getting lost in agent-platform sprawl.
 
+## Backend
+
+The `backend/` Python package provides a FastAPI server that forwards
+map-aware chat messages to an LLM (OpenAI or Anthropic) using tool-calling.
+
+### Quick start
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Copy and fill in environment variables
+cp .env.example .env
+# then set OPENAI_API_KEY (or ANTHROPIC_API_KEY)
+
+# 3. Run the development server
+uvicorn backend.main:app --reload
+```
+
+### `POST /chat`
+
+**Request**
+
+```json
+{
+  "message": "What layers are loaded?",
+  "map_context": {
+    "bbox": { "west": -123, "south": 37, "east": -121, "north": 38 },
+    "zoom": 9,
+    "visible_layers": ["cities", "roads"],
+    "selected_feature_ids": []
+  }
+}
+```
+
+**Response**
+
+```json
+{
+  "text": "I'll check what layers are available.",
+  "tool_calls": [
+    { "name": "list_layers", "args": {} },
+    { "name": "get_map_state", "args": {} }
+  ]
+}
+```
+
+The `tool_calls` list is returned as structured commands for the frontend to
+execute via the TypeScript `MapAssistantRouter`.  The backend does **not**
+execute tools itself – it stays stateless and lets the browser-side adapter
+do all map interactions.
+
+### Environment variables
+
+| Variable | Required | Default | Description |
+|---|---|---|---|
+| `LLM_PROVIDER` | No | `openai` | `openai` or `anthropic` |
+| `OPENAI_API_KEY` | When `LLM_PROVIDER=openai` | — | OpenAI API key |
+| `OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model name |
+| `ANTHROPIC_API_KEY` | When `LLM_PROVIDER=anthropic` | — | Anthropic API key |
+| `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model name |
+
+### Running tests
+
+```bash
+python -m pytest backend/tests/ -v
+```
+
 ## Status
 
-Initial first-version scaffold implemented.
+Initial first-version scaffold implemented, including the FastAPI backend
+with LLM tool-calling support.
 
 The next useful additions are:
 
-- repo/file layout
-- command schemas
-- adapter interfaces
-- first demo app
-- backend tool routing prototype
+- first demo app with MapLibre
+- more tool coverage (query_features, set_view)
+- streaming responses
