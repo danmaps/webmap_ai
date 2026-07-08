@@ -531,13 +531,21 @@ export class MapLibreMapAssistantAdapter implements MapAssistantAdapter {
   }
 
   private parseWhereClause(where: string): unknown[] {
-    const inMatch = where.match(/^\s*([A-Za-z_][\w-]*)\s+IN\s*\((.+)\)\s*$/i);
+    const trimmed = where.trim();
+    const upper = trimmed.toUpperCase();
+    const inIndex = upper.indexOf(" IN ");
 
-    if (inMatch) {
-      const field = inMatch[1];
-      const rawValues = inMatch[2];
+    if (inIndex > 0) {
+      const field = trimmed.slice(0, inIndex).trim();
+      const listExpression = trimmed.slice(inIndex + 4).trim();
 
-      if (!field || !rawValues) {
+      if (!this.isSupportedFieldName(field) || !listExpression.startsWith("(") || !listExpression.endsWith(")")) {
+        throw new Error(`Unsupported where clause: ${where}`);
+      }
+
+      const rawValues = listExpression.slice(1, -1).trim();
+
+      if (!rawValues) {
         throw new Error(`Unsupported where clause: ${where}`);
       }
 
@@ -553,14 +561,15 @@ export class MapLibreMapAssistantAdapter implements MapAssistantAdapter {
       return ["in", this.toFilterOperand(field), ["literal", values]];
     }
 
-    const equalityMatch = where.match(/^\s*([A-Za-z_][\w-]*)\s*(=|!=)\s*(.+)\s*$/);
+    const notEqualsIndex = trimmed.indexOf("!=");
+    const operator = notEqualsIndex >= 0 ? "!=" : "=";
+    const operatorIndex = notEqualsIndex >= 0 ? notEqualsIndex : trimmed.indexOf("=");
 
-    if (equalityMatch) {
-      const field = equalityMatch[1];
-      const operator = equalityMatch[2];
-      const valueText = equalityMatch[3];
+    if (operatorIndex > 0) {
+      const field = trimmed.slice(0, operatorIndex).trim();
+      const valueText = trimmed.slice(operatorIndex + operator.length).trim();
 
-      if (!field || !operator || !valueText) {
+      if (!this.isSupportedFieldName(field) || !valueText) {
         throw new Error(`Unsupported where clause: ${where}`);
       }
 
@@ -574,6 +583,10 @@ export class MapLibreMapAssistantAdapter implements MapAssistantAdapter {
     }
 
     throw new Error(`Unsupported where clause: ${where}`);
+  }
+
+  private isSupportedFieldName(field: string): boolean {
+    return /^[A-Za-z_][\w-]*$/.test(field);
   }
 
   private toFilterOperand(field: string): unknown[] {

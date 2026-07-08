@@ -36,7 +36,10 @@ class MockMap {
     };
     this.sourceFeaturesBySourceId = {
       citiesSource: [{ id: "city-1", properties: { name: "Oakland" } }],
-      roadsSource: [{ id: 5, properties: { class: "primary", lanes: 2 } }],
+      roadsSource: [
+        { id: 5, properties: { class: "primary", lanes: 2 } },
+        { id: 6, properties: { class: "secondary", lanes: 1 } },
+      ],
       emptySource: [],
     };
     this.style = {
