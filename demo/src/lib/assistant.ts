@@ -314,6 +314,12 @@ function buildMockReply(message: string, toolSummary: string): string {
   );
 }
 
+const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
+
+export const OPENROUTER_MODEL: string =
+  (import.meta.env["VITE_OPENROUTER_MODEL"] as string | undefined)?.trim() ||
+  DEFAULT_OPENROUTER_MODEL;
+
 export class AssistantService {
   private adapter: MapLibreMapAssistantAdapter;
   private router: MapAssistantRouter;
@@ -418,7 +424,7 @@ export class AssistantService {
     ].join("\n");
 
     const body = {
-      model: "openai/gpt-4o-mini",
+      model: OPENROUTER_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userMessage },
