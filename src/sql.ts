@@ -28,7 +28,7 @@ export function assertReadOnlySql(sql: string): void {
 
   for (let index = 0; index < trimmed.length; index += 1) {
     const char = trimmed.charAt(index);
-    const nextChar = trimmed.charAt(index + 1) || undefined;
+    const nextChar = trimmed.charAt(index + 1);
 
     if (quote) {
       if (char === quote) {
@@ -66,14 +66,16 @@ export function assertReadOnlySql(sql: string): void {
 }
 
 export function buildQueryFeaturesSql(args: QueryFeaturesArgs): string {
-  const sql = [
+  const baseSql = [
     `SELECT * FROM ${quoteIdentifier(args.layerId)}`,
     args.where?.trim() ? `WHERE ${args.where.trim()}` : undefined,
-    `LIMIT ${args.limit ?? 50}`,
   ]
     .filter((part): part is string => Boolean(part))
     .join(" ");
 
+  assertReadOnlySql(baseSql);
+
+  const sql = `${baseSql} LIMIT ${args.limit ?? 50}`;
   assertReadOnlySql(sql);
   return sql;
 }

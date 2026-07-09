@@ -171,7 +171,7 @@ describe("MapAssistantRouter", () => {
     expect(response.toolResults[0]).toEqual({
       name: "query_features",
       ok: false,
-      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\'); DROP TABLE cities LIMIT 50',
+      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\'); DROP TABLE cities',
       error: "Only a single read-only SELECT or WITH statement without comments is allowed.",
     });
   });
@@ -194,7 +194,7 @@ describe("MapAssistantRouter", () => {
     expect(response.toolResults[0]).toEqual({
       name: "query_features",
       ok: false,
-      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\') -- ignore the rest LIMIT 50',
+      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\') -- ignore the rest',
       error: "Only a single read-only SELECT or WITH statement without comments is allowed.",
     });
   });
