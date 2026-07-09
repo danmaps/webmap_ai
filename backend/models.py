@@ -22,8 +22,8 @@ class MapCenter(BaseModel):
 class FieldInfo(BaseModel):
     """Schema-level field descriptor (name + type only, no values)."""
 
-    name: str
-    type: str
+    name: str = Field(description="Attribute field name (e.g. 'population').")
+    type: str = Field(description="Data type of the field (e.g. 'string', 'number').")
 
 
 class LayerSchemaInfo(BaseModel):
@@ -33,10 +33,14 @@ class LayerSchemaInfo(BaseModel):
     or geometry coordinates.
     """
 
-    layer_id: str
-    layer_name: str | None = None
-    geometry_type: str | None = None
-    fields: list[FieldInfo] = Field(default_factory=list)
+    layer_id: str = Field(description="Unique layer identifier.")
+    layer_name: str | None = Field(default=None, description="Human-readable layer name.")
+    geometry_type: str | None = Field(
+        default=None, description="Geometry type (e.g. 'point', 'line', 'polygon')."
+    )
+    fields: list[FieldInfo] = Field(
+        default_factory=list, description="Attribute field descriptors (names and types only)."
+    )
 
 
 class MapContext(BaseModel):
