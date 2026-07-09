@@ -27,7 +27,7 @@ export function assertReadOnlySql(sql: string): void {
   let sawTerminator = false;
 
   for (let index = 0; index < trimmed.length; index += 1) {
-    const char = trimmed[index];
+    const char = trimmed[index] ?? "";
     const nextChar = trimmed[index + 1];
 
     if (quote) {
@@ -46,7 +46,7 @@ export function assertReadOnlySql(sql: string): void {
       continue;
     }
 
-    if ((char === "-" && nextChar === "-") || (char === "/" && nextChar === "*") || (char === "*" && nextChar === "/")) {
+    if (startsSqlComment(char, nextChar)) {
       throw new ReadOnlySqlValidationError(sql);
     }
 
@@ -80,4 +80,12 @@ export function buildQueryFeaturesSql(args: QueryFeaturesArgs): string {
 
 function quoteIdentifier(identifier: string): string {
   return `"${identifier.replaceAll('"', '""')}"`;
+}
+
+function startsSqlComment(char: string, nextChar?: string): boolean {
+  return (
+    (char === "-" && nextChar === "-") ||
+    (char === "/" && nextChar === "*") ||
+    (char === "*" && nextChar === "/")
+  );
 }
