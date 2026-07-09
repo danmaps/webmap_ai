@@ -23,7 +23,7 @@ describe("assertReadOnlySql", () => {
     );
   });
 
-  it("rejects comment-based smuggling", () => {
+  it("rejects statements with comments", () => {
     expect(() => assertReadOnlySql("SELECT * FROM cities -- sneaky")).toThrow(
       ReadOnlySqlValidationError,
     );

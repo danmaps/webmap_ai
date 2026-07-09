@@ -27,8 +27,8 @@ export function assertReadOnlySql(sql: string): void {
   let sawTerminator = false;
 
   for (let index = 0; index < trimmed.length; index += 1) {
-    const char = trimmed[index] ?? "";
-    const nextChar = trimmed[index + 1];
+    const char = trimmed.charAt(index);
+    const nextChar = trimmed.charAt(index + 1) || undefined;
 
     if (quote) {
       if (char === quote) {

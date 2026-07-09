@@ -16,13 +16,13 @@ export class MapAssistantRouter {
           sql = buildQueryFeaturesSql(toolCall.args);
         }
         const data = await this.dispatch(toolCall);
-        toolResults.push({ name: toolCall.name, ok: true, ...(sql ? { sql } : {}), data });
+        toolResults.push({ name: toolCall.name, ok: true, ...withSql(sql), data });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown tool execution error";
         if (error instanceof ReadOnlySqlValidationError) {
           sql = error.sql;
         }
-        toolResults.push({ name: toolCall.name, ok: false, ...(sql ? { sql } : {}), error: message });
+        toolResults.push({ name: toolCall.name, ok: false, ...withSql(sql), error: message });
       }
     }
 
@@ -68,4 +68,8 @@ export class MapAssistantRouter {
       }
     }
   }
+}
+
+function withSql(sql: string | undefined): { sql?: string } {
+  return sql ? { sql } : {};
 }
