@@ -6,6 +6,7 @@ import json
 import os
 from typing import Any
 
+from backend.context import build_system_prompt
 from backend.models import ChatResponse, MapContext, ToolCall
 from backend.providers.base import LLMProvider
 
@@ -16,32 +17,6 @@ except ImportError as exc:  # pragma: no cover
         "openai package is required for OpenAIProvider. "
         "Install it with: pip install openai"
     ) from exc
-
-
-def _build_system_prompt(map_context: MapContext) -> str:
-    """Construct a system prompt that injects the current map state."""
-    parts = [
-        "You are a helpful map assistant. You have access to tools that let you "
-        "inspect and interact with a web map. Use them when relevant.",
-        "",
-        "Current map context:",
-    ]
-
-    if map_context.bbox:
-        b = map_context.bbox
-        parts.append(
-            f"  Bounding box: west={b.west}, south={b.south}, east={b.east}, north={b.north}"
-        )
-    if map_context.zoom is not None:
-        parts.append(f"  Zoom: {map_context.zoom}")
-    if map_context.center:
-        parts.append(f"  Center: lng={map_context.center.lng}, lat={map_context.center.lat}")
-    if map_context.visible_layers:
-        parts.append(f"  Visible layers: {', '.join(map_context.visible_layers)}")
-    if map_context.selected_feature_ids:
-        parts.append(f"  Selected feature IDs: {', '.join(map_context.selected_feature_ids)}")
-
-    return "\n".join(parts)
 
 
 def _to_openai_tools(tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -82,7 +57,7 @@ class OpenAIProvider(LLMProvider):
         map_context: MapContext,
         tools: list[dict[str, Any]],
     ) -> ChatResponse:
-        system_prompt = _build_system_prompt(map_context)
+        system_prompt = build_system_prompt(map_context)
         openai_tools = _to_openai_tools(tools)
 
         response = await self._client.chat.completions.create(
