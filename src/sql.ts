@@ -83,9 +83,5 @@ function quoteIdentifier(identifier: string): string {
 }
 
 function startsSqlComment(char: string, nextChar?: string): boolean {
-  return (
-    (char === "-" && nextChar === "-") ||
-    (char === "/" && nextChar === "*") ||
-    (char === "*" && nextChar === "/")
-  );
+  return (char === "-" && nextChar === "-") || (char === "/" && nextChar === "*");
 }

@@ -176,6 +176,29 @@ describe("MapAssistantRouter", () => {
     });
   });
 
+  it("rejects comment-based query_features bypass attempts before dispatching", async () => {
+    const adapter = spyAdapter();
+    const router = new MapAssistantRouter(adapter);
+
+    const response = await router.run({
+      message: "bypass the filter",
+      toolCalls: [
+        {
+          name: "query_features",
+          args: { layerId: "cities", where: "id IN ('c1') -- ignore the rest" },
+        },
+      ],
+    });
+
+    expect(adapter.queryFeatures).not.toHaveBeenCalled();
+    expect(response.toolResults[0]).toEqual({
+      name: "query_features",
+      ok: false,
+      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\') -- ignore the rest LIMIT 50',
+      error: "Only a single read-only SELECT or WITH statement without comments is allowed.",
+    });
+  });
+
   it("handles an empty tool call array", async () => {
     const router = new MapAssistantRouter(makeMemoryAdapter());
 
