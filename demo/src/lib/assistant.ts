@@ -290,6 +290,23 @@ function formatToolResultsAsText(response: AssistantResponse): string {
         lines.push(`🔍 **Visible features** (${count}) — ${sample}${count > 3 ? "…" : ""}`);
         break;
       }
+      case "query_features": {
+        const features = result.data as Array<{ id: string; properties: Record<string, unknown> }>;
+        const count = features.length;
+        const sample = features
+          .slice(0, 3)
+          .map((f) => {
+            const name = f.properties["name"] ?? f.id;
+            return String(name);
+          })
+          .join(", ");
+        lines.push(
+          `🧮 **Query features** (${count}) — ${sample}${count > 3 ? "…" : ""}${
+            result.sql ? `\n\`${result.sql}\`` : ""
+          }`,
+        );
+        break;
+      }
       case "get_layer_schema": {
         const schema = result.data as { layerId: string; fields: Array<{ name: string; type: string }> };
         const fields = schema.fields.map((f) => `${f.name}:${f.type}`).join(", ");

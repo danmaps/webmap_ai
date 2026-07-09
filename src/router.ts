@@ -1,4 +1,5 @@
 import type { MapAssistantAdapter } from "./adapter.js";
+import { ReadOnlySqlValidationError, buildQueryFeaturesSql } from "./sql.js";
 import type { AssistantRequest, AssistantResponse, MapAssistantToolCall } from "./tools.js";
 
 export class MapAssistantRouter {
@@ -8,12 +9,20 @@ export class MapAssistantRouter {
     const toolResults = [] as AssistantResponse["toolResults"];
 
     for (const toolCall of request.toolCalls) {
+      let sql: string | undefined;
+
       try {
+        if (toolCall.name === "query_features") {
+          sql = buildQueryFeaturesSql(toolCall.args);
+        }
         const data = await this.dispatch(toolCall);
-        toolResults.push({ name: toolCall.name, ok: true, data });
+        toolResults.push({ name: toolCall.name, ok: true, ...withSql(sql), data });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown tool execution error";
-        toolResults.push({ name: toolCall.name, ok: false, error: message });
+        if (error instanceof ReadOnlySqlValidationError) {
+          sql = error.sql;
+        }
+        toolResults.push({ name: toolCall.name, ok: false, ...withSql(sql), error: message });
       }
     }
 
@@ -59,4 +68,8 @@ export class MapAssistantRouter {
       }
     }
   }
+}
+
+function withSql(sql: string | undefined): { sql?: string } {
+  return sql ? { sql } : {};
 }

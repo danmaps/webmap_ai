@@ -74,6 +74,21 @@ describe("MapAssistantRouter", () => {
     });
   });
 
+  it("includes the audited SQL for query_features tool results", async () => {
+    const router = new MapAssistantRouter(makeMemoryAdapter());
+
+    const response = await router.run({
+      message: "query cities",
+      toolCalls: [{ name: "query_features", args: { layerId: "cities", where: "id IN ('c1')" } }],
+    });
+
+    expect(response.toolResults[0]).toMatchObject({
+      name: "query_features",
+      ok: true,
+      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\') LIMIT 50',
+    });
+  });
+
   it("returns null data for mutation tool calls", async () => {
     const router = new MapAssistantRouter(makeMemoryAdapter());
 
@@ -135,6 +150,52 @@ describe("MapAssistantRouter", () => {
       name: "list_layers",
       ok: false,
       error: "Unknown tool execution error",
+    });
+  });
+
+  it("rejects unsafe generated SQL before dispatching query_features", async () => {
+    const adapter = spyAdapter();
+    const router = new MapAssistantRouter(adapter);
+
+    const response = await router.run({
+      message: "do something unsafe",
+      toolCalls: [
+        {
+          name: "query_features",
+          args: { layerId: "cities", where: "id IN ('c1'); DROP TABLE cities" },
+        },
+      ],
+    });
+
+    expect(adapter.queryFeatures).not.toHaveBeenCalled();
+    expect(response.toolResults[0]).toEqual({
+      name: "query_features",
+      ok: false,
+      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\'); DROP TABLE cities',
+      error: "Only a single read-only SELECT or WITH statement without comments is allowed.",
+    });
+  });
+
+  it("rejects comment-based query_features bypass attempts before dispatching", async () => {
+    const adapter = spyAdapter();
+    const router = new MapAssistantRouter(adapter);
+
+    const response = await router.run({
+      message: "bypass the filter",
+      toolCalls: [
+        {
+          name: "query_features",
+          args: { layerId: "cities", where: "id IN ('c1') -- ignore the rest" },
+        },
+      ],
+    });
+
+    expect(adapter.queryFeatures).not.toHaveBeenCalled();
+    expect(response.toolResults[0]).toEqual({
+      name: "query_features",
+      ok: false,
+      sql: 'SELECT * FROM "cities" WHERE id IN (\'c1\') -- ignore the rest',
+      error: "Only a single read-only SELECT or WITH statement without comments is allowed.",
     });
   });
 
