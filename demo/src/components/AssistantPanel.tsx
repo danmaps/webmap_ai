@@ -20,7 +20,7 @@ const WELCOME: ChatMessage = {
     (import.meta.env["VITE_BACKEND_URL"]
       ? "🟢 Backend URL detected — routing chat through the FastAPI backend."
       : import.meta.env["VITE_OPENROUTER_API_KEY"]
-        ? `🟢 OpenRouter API key detected — using live LLM (\`${OPENROUTER_MODEL}\`).`
+        ? `🟢 Public demo mode — using shared OpenRouter access with a low-cost model (\`${OPENROUTER_MODEL}\`).`
         : "🟡 No API key or backend set — using mock responses. Add `VITE_BACKEND_URL` (FastAPI) or `VITE_OPENROUTER_API_KEY` to `demo/.env` for live AI."),
 };
 
