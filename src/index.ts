@@ -1,6 +1,7 @@
 export * from "./adapter.js";
 export * from "./types.js";
 export * from "./tools.js";
+export * from "./registry.js";
 export * from "./router.js";
 export * from "./sql.js";
 export * from "./context.js";
