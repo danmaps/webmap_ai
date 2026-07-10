@@ -1,6 +1,7 @@
 import type { MapAssistantAdapter } from "./adapter.js";
+import { parseToolCall } from "./registry.js";
 import { ReadOnlySqlValidationError, buildQueryFeaturesSql } from "./sql.js";
-import type { AssistantRequest, AssistantResponse, MapAssistantToolCall } from "./tools.js";
+import type { AssistantRequest, AssistantResponse } from "./tools.js";
 
 export class MapAssistantRouter {
   public constructor(private readonly adapter: MapAssistantAdapter) {}
@@ -8,7 +9,18 @@ export class MapAssistantRouter {
   public async run(request: AssistantRequest): Promise<AssistantResponse> {
     const toolResults = [] as AssistantResponse["toolResults"];
 
-    for (const toolCall of request.toolCalls) {
+    for (const raw of request.toolCalls) {
+      const toolCall = parseToolCall(raw.name, raw.args);
+
+      if (!toolCall) {
+        toolResults.push({
+          name: raw.name,
+          ok: false,
+          error: `Unknown or invalid tool call: "${raw.name}"`,
+        });
+        continue;
+      }
+
       let sql: string | undefined;
 
       try {
@@ -35,7 +47,9 @@ export class MapAssistantRouter {
     };
   }
 
-  private async dispatch(toolCall: MapAssistantToolCall): Promise<unknown> {
+  private async dispatch(
+    toolCall: NonNullable<ReturnType<typeof parseToolCall>>,
+  ): Promise<unknown> {
     switch (toolCall.name) {
       case "list_layers":
         return this.adapter.listLayers();
@@ -73,3 +87,4 @@ export class MapAssistantRouter {
 function withSql(sql: string | undefined): { sql?: string } {
   return sql ? { sql } : {};
 }
+

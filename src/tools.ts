@@ -32,13 +32,19 @@ export type MapAssistantToolCall =
 
 export interface AssistantRequest {
   message: string;
-  toolCalls: MapAssistantToolCall[];
+  /**
+   * Tool calls to execute. Accepts both fully-typed `MapAssistantToolCall`
+   * values and raw `{ name; args? }` objects from untrusted model output —
+   * the router validates every call at runtime via `parseToolCall`.
+   */
+  toolCalls: ReadonlyArray<{ name: string; args?: unknown }>;
 }
 
 export interface AssistantResponse {
   text: string;
   toolResults: Array<{
-    name: MapAssistantToolName;
+    /** The tool name as received from the model; may be unknown when the call was rejected. */
+    name: string;
     ok: boolean;
     sql?: string;
     data?: unknown;

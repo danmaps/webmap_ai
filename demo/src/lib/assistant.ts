@@ -1,6 +1,6 @@
-import { MapAssistantRouter, MapLibreMapAssistantAdapter } from "webmap_ai";
+import { MapAssistantRouter, MapLibreMapAssistantAdapter, parseToolCall, TOOL_REGISTRY } from "webmap_ai";
 import type { MapLibreMapLike } from "webmap_ai";
-import type { AssistantResponse, MapAssistantToolCall, QueryFeaturesArgs, SetFilterArgs } from "webmap_ai";
+import type { AssistantResponse, MapAssistantToolCall } from "webmap_ai";
 
 export interface ChatMessage {
   id: string;
@@ -30,200 +30,19 @@ interface OpenRouterChoice {
   };
 }
 
-const TOOL_DEFINITIONS = [
-  {
-    type: "function",
-    function: {
-      name: "list_layers",
-      description: "List all available map layers with their visibility status.",
-      parameters: { type: "object", properties: {} },
-    },
+const TOOL_DEFINITIONS = TOOL_REGISTRY.map((entry) => ({
+  type: "function",
+  function: {
+    name: entry.name,
+    description: entry.description,
+    parameters: entry.parameters,
   },
-  {
-    type: "function",
-    function: {
-      name: "get_map_state",
-      description:
-        "Get current map state including bounding box, center, zoom level, bearing, pitch, and selected feature IDs.",
-      parameters: { type: "object", properties: {} },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "get_layer_schema",
-      description: "Get the schema (fields/columns) for a specific layer.",
-      parameters: {
-        type: "object",
-        properties: {
-          layerId: { type: "string", description: "The ID of the layer to inspect." },
-        },
-        required: ["layerId"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "query_visible_features",
-      description: "Query features currently visible on the map for a specific layer.",
-      parameters: {
-        type: "object",
-        properties: {
-          layerId: { type: "string", description: "The layer to query." },
-          limit: { type: "number", description: "Maximum number of features to return." },
-        },
-        required: ["layerId"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "set_layer_visibility",
-      description: "Show or hide a map layer.",
-      parameters: {
-        type: "object",
-        properties: {
-          layerId: { type: "string", description: "The layer to show or hide." },
-          visible: { type: "boolean", description: "True to show, false to hide." },
-        },
-        required: ["layerId", "visible"],
-      },
-    },
-  },
-  {
-    type: "function",
-    function: {
-      name: "set_view",
-      description: "Pan or zoom the map to a specific location.",
-      parameters: {
-        type: "object",
-        properties: {
-          zoom: { type: "number", description: "Zoom level (0–22)." },
-          center: {
-            type: "object",
-            description: "Map center as {lng, lat}.",
-            properties: {
-              lng: { type: "number" },
-              lat: { type: "number" },
-            },
-          },
-        },
-      },
-    },
-  },
-];
+}));
 
-function parseBackendToolCall(name: string, args: Record<string, unknown>): MapAssistantToolCall | null {
-  switch (name) {
-    case "list_layers":
-      return { name: "list_layers" };
-    case "get_map_state":
-      return { name: "get_map_state" };
-    case "clear_selection":
-      return { name: "clear_selection" };
-    case "get_layer_schema":
-      return { name: "get_layer_schema", args: { layerId: String(args["layerId"] ?? "") } };
-    case "query_visible_features":
-      return {
-        name: "query_visible_features",
-        args: {
-          layerId: String(args["layerId"] ?? ""),
-          limit: typeof args["limit"] === "number" ? args["limit"] : undefined,
-        },
-      };
-    case "query_features": {
-      const qfArgs: QueryFeaturesArgs = {
-        layerId: String(args["layerId"] ?? ""),
-        where: typeof args["where"] === "string" ? args["where"] : undefined,
-        limit: typeof args["limit"] === "number" ? args["limit"] : undefined,
-      };
-      return { name: "query_features", args: qfArgs };
-    }
-    case "set_layer_visibility":
-      return {
-        name: "set_layer_visibility",
-        args: { layerId: String(args["layerId"] ?? ""), visible: Boolean(args["visible"]) },
-      };
-    case "set_view": {
-      const c =
-        args["center"] && typeof args["center"] === "object" && !Array.isArray(args["center"])
-          ? (args["center"] as { lng?: number; lat?: number })
-          : undefined;
-      return {
-        name: "set_view",
-        args: {
-          zoom: typeof args["zoom"] === "number" ? args["zoom"] : undefined,
-          center:
-            c && typeof c.lng === "number" && typeof c.lat === "number"
-              ? { lng: c.lng, lat: c.lat }
-              : undefined,
-        },
-      };
-    }
-    case "select_features":
-      return {
-        name: "select_features",
-        args: {
-          layerId: String(args["layerId"] ?? ""),
-          featureIds: Array.isArray(args["featureIds"]) ? args["featureIds"].map(String) : [],
-        },
-      };
-    case "set_filter": {
-      const sfArgs: SetFilterArgs = {
-        layerId: String(args["layerId"] ?? ""),
-        where: typeof args["where"] === "string" ? args["where"] : "",
-      };
-      return { name: "set_filter", args: sfArgs };
-    }
-    default:
-      return null;
-  }
-}
-
-function parseToolCall(name: string, argsJson: string): MapAssistantToolCall | null {
+function parseToolCallJson(name: string, argsJson: string): ReturnType<typeof parseToolCall> {
   try {
-    const args = argsJson ? (JSON.parse(argsJson) as Record<string, unknown>) : {};
-    switch (name) {
-      case "list_layers":
-        return { name: "list_layers" };
-      case "get_map_state":
-        return { name: "get_map_state" };
-      case "get_layer_schema":
-        return { name: "get_layer_schema", args: { layerId: String(args["layerId"] ?? "") } };
-      case "query_visible_features":
-        return {
-          name: "query_visible_features",
-          args: {
-            layerId: String(args["layerId"] ?? ""),
-            limit: typeof args["limit"] === "number" ? args["limit"] : undefined,
-          },
-        };
-      case "set_layer_visibility":
-        return {
-          name: "set_layer_visibility",
-          args: { layerId: String(args["layerId"] ?? ""), visible: Boolean(args["visible"]) },
-        };
-      case "set_view": {
-        const center =
-          args["center"] && typeof args["center"] === "object" && !Array.isArray(args["center"])
-            ? (args["center"] as { lng?: number; lat?: number })
-            : undefined;
-        return {
-          name: "set_view",
-          args: {
-            zoom: typeof args["zoom"] === "number" ? args["zoom"] : undefined,
-            center:
-              center && typeof center.lng === "number" && typeof center.lat === "number"
-                ? { lng: center.lng, lat: center.lat }
-                : undefined,
-          },
-        };
-      }
-      default:
-        return null;
-    }
+    const args = argsJson ? (JSON.parse(argsJson) as unknown) : {};
+    return parseToolCall(name, args);
   } catch {
     return null;
   }
@@ -417,7 +236,7 @@ export class AssistantService {
     };
 
     const toolCalls: MapAssistantToolCall[] = (json.tool_calls ?? [])
-      .map((tc) => parseBackendToolCall(tc.name, tc.args ?? {}))
+      .map((tc) => parseToolCall(tc.name, tc.args ?? {}))
       .filter((tc): tc is MapAssistantToolCall => tc !== null);
 
     let toolResults: AssistantResponse["toolResults"] = [];
@@ -493,7 +312,7 @@ export class AssistantService {
       // Parse each requested call (keeping alignment with its tool_call id).
       const parsed = rawToolCalls.map((tc) => ({
         id: tc.id,
-        call: parseToolCall(tc.function.name, tc.function.arguments),
+        call: parseToolCallJson(tc.function.name, tc.function.arguments),
       }));
       const validCalls = parsed
         .map((p) => p.call)
