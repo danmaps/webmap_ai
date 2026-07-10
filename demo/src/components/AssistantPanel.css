@@ -55,6 +55,7 @@
   margin-left: 24px;
   font-size: 14px;
   color: #e8f0ff;
+  overflow-wrap: anywhere;
 }
 
 .message--assistant .message-content {
@@ -64,6 +65,7 @@
   margin-right: 24px;
   font-size: 13px;
   color: #d0d8e8;
+  overflow-wrap: anywhere;
 }
 
 .message--loading .message-content {
@@ -198,6 +200,7 @@
   padding: 12px;
   border-top: 1px solid #2a3a5a;
   background: #111828;
+  padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px));
 }
 
 .message-input {
@@ -250,4 +253,98 @@
 .send-btn:disabled {
   opacity: 0.4;
   cursor: default;
+}
+
+@media (max-width: 900px) {
+  .assistant-panel {
+    width: 100%;
+    max-width: none;
+    min-width: 0;
+    height: auto;
+    min-height: 0;
+    border-left: 0;
+    border-top: 1px solid #2a3a5a;
+  }
+
+  .assistant-header {
+    padding: 10px 14px;
+  }
+
+  .messages {
+    max-height: 34dvh;
+    min-height: 220px;
+    padding: 10px;
+  }
+
+  .tool-results {
+    margin-right: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .assistant-header {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+  }
+
+  .assistant-title {
+    font-size: 13px;
+  }
+
+  .assistant-badge {
+    font-size: 10px;
+  }
+
+  .messages {
+    max-height: none;
+    min-height: 0;
+    height: auto;
+    padding: 8px;
+    gap: 8px;
+  }
+
+  .message--user .message-content,
+  .message--assistant .message-content {
+    margin-left: 0;
+    margin-right: 0;
+    padding: 10px 12px;
+  }
+
+  .message--user .message-content {
+    border-radius: 12px 12px 6px 12px;
+  }
+
+  .message--assistant .message-content {
+    border-radius: 12px 12px 12px 6px;
+    font-size: 12.5px;
+  }
+
+  .message-body {
+    gap: 6px;
+  }
+
+  .tool-results {
+    font-size: 10px;
+  }
+
+  .input-row {
+    position: sticky;
+    bottom: 0;
+    padding: 8px;
+    background: rgba(17, 24, 40, 0.96);
+    backdrop-filter: blur(10px);
+  }
+
+  .message-input {
+    font-size: 16px;
+    min-height: 44px;
+    max-height: 120px;
+  }
+
+  .send-btn {
+    width: 44px;
+    height: 44px;
+    font-size: 20px;
+  }
 }

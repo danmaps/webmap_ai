@@ -1,8 +1,10 @@
 .app-layout {
   display: flex;
   height: 100vh;
+  height: 100dvh;
   width: 100vw;
   overflow: hidden;
+  background: #08101f;
 }
 
 .map-region {
@@ -10,4 +12,31 @@
   flex: 1;
   min-width: 0;
   height: 100%;
+}
+
+@media (max-width: 900px) {
+  .app-layout {
+    flex-direction: column;
+  }
+
+  .map-region {
+    flex: 0 0 52dvh;
+    height: 52dvh;
+    min-height: 320px;
+  }
+}
+
+@media (max-width: 640px) {
+  .app-layout {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: auto;
+  }
+
+  .map-region {
+    flex: 0 0 46dvh;
+    height: 46dvh;
+    min-height: 280px;
+  }
 }

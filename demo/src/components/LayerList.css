@@ -81,3 +81,40 @@
   padding: 1px 6px;
   border-radius: 10px;
 }
+
+@media (max-width: 640px) {
+  .layer-list {
+    top: auto;
+    right: 8px;
+    left: 8px;
+    bottom: 8px;
+    width: auto;
+    max-width: calc(100% - 16px);
+    border-radius: 12px;
+    background: rgba(12, 16, 28, 0.86);
+    backdrop-filter: blur(10px);
+  }
+
+  .layer-list-header {
+    padding: 7px 10px;
+    font-size: 11px;
+  }
+
+  .layer-list-items {
+    padding: 4px;
+  }
+
+  .layer-label {
+    gap: 6px;
+    padding: 7px 8px;
+  }
+
+  .layer-name {
+    font-size: 12px;
+  }
+
+  .layer-type {
+    font-size: 9px;
+    padding: 1px 5px;
+  }
+}
