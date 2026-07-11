@@ -630,11 +630,11 @@ export class MapLibreMapAssistantAdapter implements MapAssistantAdapter {
   }
 
   private getMetadataValue(metadata: Record<string, unknown> | undefined, key: string): unknown {
-    return metadata?.[key];
+    return metadata?.[`webmap_ai:${key}`] ?? metadata?.[key];
   }
 
   private getCompanionLayerIds(metadata: Record<string, unknown> | undefined): string[] {
-    const companions = this.getMetadataValue(metadata, "webmap_ai:companions");
+    const companions = this.getMetadataValue(metadata, "companions");
     if (!Array.isArray(companions)) {
       return [];
     }

@@ -101,6 +101,39 @@ function buildLayerSchemas(): MapContextLayerSchema[] {
   });
 }
 
+function formatLayerNames(layerIds: string[]): string {
+  const names = layerIds
+    .map((layerId) => DEMO_LAYERS.find((layer) => layer.id === layerId)?.name ?? layerId);
+  return joinNatural(names);
+}
+
+function buildVisibilityReply(
+  toolCalls: MapAssistantToolCall[],
+  layers: Array<{ id: string; name: string; visible: boolean }>,
+): string {
+  const visibilityCalls = toolCalls.filter(
+    (call): call is Extract<MapAssistantToolCall, { name: "set_layer_visibility" }> =>
+      call.name === "set_layer_visibility",
+  );
+
+  if (visibilityCalls.length === 0) {
+    return "Updated the map layers.";
+  }
+
+  const changedIds = visibilityCalls.map((call) => call.args.layerId);
+  const uniqueChangedIds = Array.from(new Set(changedIds));
+  const makeVisible = visibilityCalls.every((call) => call.args.visible);
+  const visibleLayers = layers.filter((layer) => layer.visible).map((layer) => layer.id);
+  const action = makeVisible ? "Turned on" : "Turned off";
+  const changedLabel = formatLayerNames(uniqueChangedIds);
+
+  if (visibleLayers.length === 0) {
+    return `${action} ${changedLabel}. No map data layers are visible now.`;
+  }
+
+  return `${action} ${changedLabel}. Still visible: ${formatLayerNames(visibleLayers)}.`;
+}
+
 function inferDeterministicToolCalls(
   message: string,
   layers: Array<{ id: string; name: string; visible: boolean }>,
@@ -424,10 +457,21 @@ export class AssistantService {
         message: userMessage,
         toolCalls: deterministicToolCalls,
       });
+      const isVisibilityAction = deterministicToolCalls.every(
+        (call) => call.name === "set_layer_visibility",
+      );
+      const content = isVisibilityAction
+        ? buildVisibilityReply(
+            deterministicToolCalls,
+            (await this.adapter.listLayers()).filter((layer) =>
+              DEMO_LAYERS.some((candidate) => candidate.id === layer.id && layer.visible),
+            ),
+          )
+        : buildConversationalReply(userMessage, routerResponse);
       return {
         id: crypto.randomUUID(),
         role: "assistant",
-        content: buildConversationalReply(userMessage, routerResponse),
+        content,
         toolResults: routerResponse.toolResults.length > 0 ? routerResponse.toolResults : undefined,
       };
     }
