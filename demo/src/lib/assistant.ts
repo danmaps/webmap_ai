@@ -85,15 +85,14 @@ function formatToolResultsAsText(response: AssistantResponse): string {
           selectedFeatureIds?: string[];
         };
         lines.push(
-          `📍 **Map state** — zoom: ${(state.zoom ?? 0).toFixed(1)}, ` +
-            `center: ${(state.center?.lng ?? 0).toFixed(2)}°, ${(state.center?.lat ?? 0).toFixed(2)}°`,
+          `Map: zoom ${(state.zoom ?? 0).toFixed(1)}, center ${(state.center?.lng ?? 0).toFixed(2)}, ${(state.center?.lat ?? 0).toFixed(2)}`,
         );
         break;
       }
       case "list_layers": {
         const layers = result.data as Array<{ id: string; name: string; visible: boolean }>;
-        const summary = layers.map((l) => `${l.visible ? "👁" : "○"} ${l.name}`).join("  |  ");
-        lines.push(`🗂 **Layers** — ${summary}`);
+        const visible = layers.filter((l) => l.visible).map((l) => l.name);
+        lines.push(`Layers: ${visible.length > 0 ? visible.join(", ") : "none visible"}`);
         break;
       }
       case "query_visible_features": {
@@ -106,7 +105,7 @@ function formatToolResultsAsText(response: AssistantResponse): string {
             return String(name);
           })
           .join(", ");
-        lines.push(`🔍 **Visible features** (${count}) — ${sample}${count > 3 ? "…" : ""}`);
+        lines.push(`Visible features (${count}): ${sample}${count > 3 ? "…" : ""}`);
         break;
       }
       case "query_features": {
@@ -120,26 +119,24 @@ function formatToolResultsAsText(response: AssistantResponse): string {
           })
           .join(", ");
         lines.push(
-          `🧮 **Query features** (${count}) — ${sample}${count > 3 ? "…" : ""}${
-            result.sql ? `\n\`${result.sql}\`` : ""
-          }`,
+          `Query results (${count}): ${sample}${count > 3 ? "…" : ""}${result.sql ? `\nSQL: ${result.sql}` : ""}`,
         );
         break;
       }
       case "get_layer_schema": {
         const schema = result.data as { layerId: string; fields: Array<{ name: string; type: string }> };
         const fields = schema.fields.map((f) => `${f.name}:${f.type}`).join(", ");
-        lines.push(`📋 **Schema for ${schema.layerId}** — ${fields}`);
+        lines.push(`Schema for ${schema.layerId}: ${fields}`);
         break;
       }
       case "set_layer_visibility":
-        lines.push(`✅ Layer visibility updated.`);
+        lines.push("Layer visibility updated.");
         break;
       case "set_view":
-        lines.push(`✅ Map view updated.`);
+        lines.push("Map view updated.");
         break;
       default:
-        lines.push(`✅ **${result.name}** completed.`);
+        lines.push(`${result.name} completed.`);
     }
   }
 
@@ -150,24 +147,15 @@ function buildMockReply(message: string, toolSummary: string): string {
   const lower = message.toLowerCase();
 
   if (lower.includes("layer") || lower.includes("what") || lower.includes("show")) {
-    return (
-      `Here's what I can see on the map:\n\n${toolSummary}\n\n` +
-      `The demo map shows three layers: **US Regions** (colored polygons), ` +
-      `**Interstate Highways** (yellow lines), and **Major US Cities** (red dots). ` +
-      `You can ask me to hide a layer, zoom to a city, or describe what's visible.`
-    );
+    return toolSummary;
   }
   if (lower.includes("city") || lower.includes("cities")) {
-    return `${toolSummary}\n\nThe cities layer shows 15 major US cities. Each city marker includes its name, state, and population.`;
+    return toolSummary;
   }
   if (lower.includes("zoom") || lower.includes("pan") || lower.includes("view")) {
-    return `${toolSummary}\n\nI can adjust the map view — try asking me to zoom in on a specific city or region.`;
+    return toolSummary || "Ask for a city, layer, or map view.";
   }
-  return (
-    `${toolSummary}\n\n` +
-    `I'm your map assistant. I can describe the current map state, list or query layers, ` +
-    `toggle layer visibility, or adjust the view. What would you like to know?`
-  );
+  return toolSummary || "Ask for layers, visible features, or the current map state.";
 }
 
 const DEFAULT_OPENROUTER_MODEL = "openai/gpt-4o-mini";
@@ -277,7 +265,12 @@ export class AssistantService {
         .join(", ")}`,
       `- Selected features: ${mapState.selectedFeatureIds.length > 0 ? mapState.selectedFeatureIds.join(", ") : "none"}`,
       "",
-      "Respond concisely. Use tools when you need fresh data from the map.",
+      "Answer directly.",
+      "Lead with the answer, not setup.",
+      "Keep it to 1-3 short sentences or a short list.",
+      "Do not say phrases like 'Here's what I can see on the map' or explain the demo unless asked.",
+      "No emojis.",
+      "Use tools when you need fresh data from the map.",
     ].join("\n");
 
     const messages: OpenRouterMessage[] = [

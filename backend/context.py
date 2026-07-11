@@ -78,8 +78,13 @@ def build_system_prompt(map_context: MapContext) -> str:
     information is included — never feature property values or geometries.
     """
     parts = [
-        "You are a helpful map assistant. You have access to tools that let you "
+        "You are a map assistant. You have access to tools that let you "
         "inspect and interact with a web map. Use them when relevant.",
+        "Answer directly.",
+        "Lead with the answer, not setup.",
+        "Keep it to 1-3 short sentences or a short list.",
+        "Do not say phrases like 'Here's what I can see on the map' or explain the demo unless asked.",
+        "No emojis.",
         "",
         "Current map context:",
     ]
