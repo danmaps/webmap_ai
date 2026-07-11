@@ -95,7 +95,8 @@ def resolve_intent(message: str, map_context: MapContext) -> IntentResolution:
         )
 
     greeting_terms = {"hi", "hello", "hey", "yo", "sup"}
-    if lower in greeting_terms or lower.startswith("hello ") or lower.startswith("hey "):
+    first_word = lower.split(" ", 1)[0].strip(".,!?;:")
+    if first_word in greeting_terms:
         return IntentResolution(
             kind="greeting",
             direct_text="Hi. Ask me about what's visible, or tell me to zoom, filter, compare, or inspect something.",

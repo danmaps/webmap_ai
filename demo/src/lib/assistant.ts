@@ -108,7 +108,8 @@ function resolveLocalIntent(
     };
   }
 
-  if (["hi", "hello", "hey", "yo", "sup"].includes(lower) || lower.startsWith("hello ") || lower.startsWith("hey ")) {
+  const firstWord = lower.split(" ", 1)[0]?.replace(/^[.,!?;:]+|[.,!?;:]+$/g, "") ?? "";
+  if (["hi", "hello", "hey", "yo", "sup"].includes(firstWord)) {
     return {
       kind: "greeting",
       directText: "Hi. Ask me about what's visible, or tell me to zoom, filter, compare, or inspect something.",
