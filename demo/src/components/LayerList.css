@@ -14,6 +14,32 @@
   overflow: hidden;
 }
 
+.layer-list-toggle {
+  display: none;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 0;
+  background: rgba(18, 22, 36, 0.96);
+  color: #e8e8f0;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.layer-list-toggle-label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.layer-list-toggle-icon {
+  font-size: 18px;
+  line-height: 1;
+  color: #9aa0b4;
+}
+
 .layer-list-header {
   padding: 8px 12px;
   font-weight: 600;
@@ -95,13 +121,21 @@
     backdrop-filter: blur(10px);
   }
 
+  .layer-list-toggle {
+    display: flex;
+  }
+
   .layer-list-header {
-    padding: 7px 10px;
-    font-size: 11px;
+    display: none;
   }
 
   .layer-list-items {
     padding: 4px;
+    display: none;
+  }
+
+  .layer-list.layer-list--open .layer-list-items {
+    display: block;
   }
 
   .layer-label {

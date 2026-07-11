@@ -12,30 +12,6 @@
   overflow: hidden;
 }
 
-.assistant-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid #2a3a5a;
-  background: #0f3460;
-}
-
-.assistant-title {
-  font-weight: 600;
-  font-size: 14px;
-  color: #e0e0e0;
-  letter-spacing: 0.02em;
-}
-
-.assistant-badge {
-  font-size: 11px;
-  padding: 2px 8px;
-  background: #1a4a8a;
-  border-radius: 10px;
-  color: #88bbff;
-}
-
 .messages {
   flex: 1;
   min-height: 0;

@@ -132,11 +132,6 @@ export function AssistantPanel({ service }: AssistantPanelProps) {
 
   return (
     <aside className="assistant-panel">
-      <header className="assistant-header">
-        <span className="assistant-title">Map Assistant</span>
-        <span className="assistant-badge">{service ? "ready" : "loading…"}</span>
-      </header>
-
       <div className="messages">
         {messages.map((msg) => (
           <div key={msg.id} className={`message message--${msg.role}${msg.isLoading ? " message--loading" : ""}`}>

@@ -66,6 +66,7 @@ const ALL_VISIBLE: Record<string, boolean> = Object.fromEntries(
 
 export function LayerList({ map }: LayerListProps) {
   const [visible, setVisible] = useState<Record<string, boolean>>(ALL_VISIBLE);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Reuse the same adapter the assistant uses so the widget "inspects" the
   // map exactly the way the AI does — the map stays the single source of truth.
@@ -114,9 +115,24 @@ export function LayerList({ map }: LayerListProps) {
   );
 
   return (
-    <div className="layer-list" aria-label="Layers">
+    <div
+      className={`layer-list${isOpen ? " layer-list--open" : ""}`}
+      aria-label="Layers"
+    >
+      <button
+        type="button"
+        className="layer-list-toggle"
+        onClick={() => setIsOpen((open) => !open)}
+        aria-expanded={isOpen}
+        aria-controls="layer-list-items"
+      >
+        <span className="layer-list-toggle-label">Layers</span>
+        <span className="layer-list-toggle-icon" aria-hidden="true">
+          {isOpen ? "−" : "+"}
+        </span>
+      </button>
       <div className="layer-list-header">Layers</div>
-      <ul className="layer-list-items">
+      <ul className="layer-list-items" id="layer-list-items">
         {DEMO_LAYERS.map((layer) => {
           const isVisible = visible[layer.id] ?? true;
           return (
