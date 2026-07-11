@@ -89,6 +89,12 @@ function normalizeMessage(message: string): string {
   return message.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
+function firstWord(message: string): string {
+  const parts = message.split(" ", 1);
+  const first = parts[0];
+  return first.replace(/^[.,!?;:]+|[.,!?;:]+$/g, "");
+}
+
 function resolveLocalIntent(
   message: string,
   layerNames: string[],
@@ -108,8 +114,8 @@ function resolveLocalIntent(
     };
   }
 
-  const firstWord = lower.split(" ", 1)[0]?.replace(/^[.,!?;:]+|[.,!?;:]+$/g, "") ?? "";
-  if (["hi", "hello", "hey", "yo", "sup"].includes(firstWord)) {
+  const leadWord = firstWord(lower);
+  if (["hi", "hello", "hey", "yo", "sup"].includes(leadWord)) {
     return {
       kind: "greeting",
       directText: "Hi. Ask me about what's visible, or tell me to zoom, filter, compare, or inspect something.",
