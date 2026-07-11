@@ -30,6 +30,12 @@ def _join_natural(items: list[str]) -> str:
     return f"{', '.join(items[:-1])}, and {items[-1]}"
 
 
+def _first_word(text: str) -> str:
+    parts = text.split(" ", 1)
+    first = parts[0]
+    return first.strip(".,!?;:")
+
+
 def _visible_layer_names(map_context: MapContext) -> list[str]:
     names = [layer.layer_name or layer.layer_id for layer in map_context.layer_schemas]
     if names:
@@ -95,7 +101,8 @@ def resolve_intent(message: str, map_context: MapContext) -> IntentResolution:
         )
 
     greeting_terms = {"hi", "hello", "hey", "yo", "sup"}
-    if lower in greeting_terms or lower.startswith("hello ") or lower.startswith("hey "):
+    first_word = _first_word(lower)
+    if first_word in greeting_terms:
         return IntentResolution(
             kind="greeting",
             direct_text="Hi. Ask me about what's visible, or tell me to zoom, filter, compare, or inspect something.",

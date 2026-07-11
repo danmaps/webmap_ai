@@ -202,6 +202,17 @@ def test_chat_default_map_context(client: TestClient) -> None:
     assert response.json()["text"].startswith("Hi.")
 
 
+def test_chat_greeting_with_punctuation_short_circuits_provider(client: TestClient) -> None:
+    provider = AsyncMock()
+    set_provider(provider)
+
+    response = client.post("/chat", json={"message": "Hi there!", "map_context": {}})
+
+    assert response.status_code == 200
+    assert response.json()["text"].startswith("Hi.")
+    provider.chat.assert_not_called()
+
+
 def test_chat_capability_reply_short_circuits_provider(client: TestClient) -> None:
     provider = AsyncMock()
     set_provider(provider)
