@@ -8,6 +8,12 @@ interface AssistantPanelProps {
   service: AssistantService | null;
 }
 
+const SUGGESTION_PROMPTS = [
+  "What layers are loaded?",
+  "What cities are visible?",
+  "Tell me about the current map state.",
+];
+
 const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
@@ -74,13 +80,13 @@ export function AssistantPanel({ service }: AssistantPanelProps) {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const send = useCallback(async () => {
-    if (!input.trim() || busy || !service) return;
-
+  const sendMessage = useCallback(async (messageText: string) => {
+    const trimmed = messageText.trim();
+    if (!trimmed || busy || !service) return;
     const userMsg: ChatMessage = {
       id: crypto.randomUUID(),
       role: "user",
-      content: input.trim(),
+      content: trimmed,
     };
     const loadingMsg: ChatMessage = {
       id: crypto.randomUUID(),
@@ -106,7 +112,19 @@ export function AssistantPanel({ service }: AssistantPanelProps) {
     } finally {
       setBusy(false);
     }
-  }, [input, busy, service]);
+  }, [busy, service]);
+
+  const send = useCallback(async () => {
+    await sendMessage(input);
+  }, [input, sendMessage]);
+
+  const handleSuggestionClick = useCallback(
+    (suggestion: string) => {
+      setInput(suggestion);
+      void sendMessage(suggestion);
+    },
+    [sendMessage],
+  );
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -139,6 +157,22 @@ export function AssistantPanel({ service }: AssistantPanelProps) {
                 <ul className="message-body">{renderContent(msg.content)}</ul>
               )}
             </div>
+
+            {msg.id === "welcome" && (
+              <div className="suggestion-row" aria-label="Try asking suggestions">
+                {SUGGESTION_PROMPTS.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    className="suggestion-chip"
+                    disabled={!service || busy}
+                    onClick={() => handleSuggestionClick(suggestion)}
+                  >
+                    {suggestion}
+                  </button>
+                ))}
+              </div>
+            )}
 
             {msg.toolResults && msg.toolResults.length > 0 && (
               <details className="tool-results">
