@@ -23,6 +23,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from dotenv import load_dotenv
 
+from backend.intent import resolve_intent
 from backend.models import ChatRequest, ChatResponse
 from backend.providers.base import LLMProvider
 from backend.tools import TOOL_DEFINITIONS
@@ -106,11 +107,16 @@ async def chat(request: ChatRequest) -> ChatResponse:
     except ValueError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
 
+    intent = resolve_intent(request.message, request.map_context)
+    if intent.direct_text:
+        return ChatResponse(text=intent.direct_text, tool_calls=[])
+
     try:
         return await provider.chat(
             message=request.message,
             map_context=request.map_context,
             tools=TOOL_DEFINITIONS,
+            intent_hint=intent.prompt_hint,
         )
     except Exception as exc:
         raise HTTPException(status_code=502, detail=f"LLM provider error: {exc}") from exc

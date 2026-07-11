@@ -71,7 +71,7 @@ def build_assistant_context(map_context: MapContext) -> dict[str, Any]:
     return context
 
 
-def build_system_prompt(map_context: MapContext) -> str:
+def build_system_prompt(map_context: MapContext, intent_hint: str | None = None) -> str:
     """Construct a system prompt that injects scoped map context.
 
     Uses :func:`build_assistant_context` to ensure only schema-level
@@ -88,6 +88,9 @@ def build_system_prompt(map_context: MapContext) -> str:
         "",
         "Current map context:",
     ]
+
+    if intent_hint:
+        parts.extend(["", f"User intent guidance: {intent_hint}"])
 
     ctx = build_assistant_context(map_context)
 

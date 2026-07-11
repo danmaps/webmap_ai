@@ -23,6 +23,7 @@ class LLMProvider(ABC):
         message: str,
         map_context: MapContext,
         tools: list[dict[str, Any]],
+        intent_hint: str | None = None,
     ) -> ChatResponse:
         """Send a message to the LLM and return a structured response.
 
@@ -34,6 +35,9 @@ class LLMProvider(ABC):
             Current map viewport state forwarded from the frontend.
         tools:
             JSON-Schema tool definitions to expose as function calls.
+        intent_hint:
+            Optional extra steering guidance derived from lightweight intent
+            classification before the provider call.
 
         Returns
         -------

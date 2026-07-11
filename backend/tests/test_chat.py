@@ -29,6 +29,7 @@ class StubProvider(LLMProvider):
         message: str,
         map_context: MapContext,
         tools: list[dict[str, Any]],
+        intent_hint: str | None = None,
     ) -> ChatResponse:
         return self._response
 
@@ -198,6 +199,52 @@ def test_chat_default_map_context(client: TestClient) -> None:
 
     response = client.post("/chat", json={"message": "hi"})
     assert response.status_code == 200
+    assert response.json()["text"].startswith("Hi.")
+
+
+def test_chat_capability_reply_short_circuits_provider(client: TestClient) -> None:
+    provider = AsyncMock()
+    set_provider(provider)
+
+    response = client.post(
+        "/chat",
+        json={
+            "message": "What can you do here?",
+            "map_context": {"visible_layers": ["cities", "routes"]},
+        },
+    )
+
+    assert response.status_code == 200
+    assert "zoom, filter, compare, or inspect" in response.json()["text"]
+    provider.chat.assert_not_called()
+
+
+def test_chat_exploration_reply_uses_visible_layers(client: TestClient) -> None:
+    provider = AsyncMock()
+    set_provider(provider)
+
+    response = client.post(
+        "/chat",
+        json={
+            "message": "Show me something interesting",
+            "map_context": {"visible_layers": ["cities", "routes", "regions"]},
+        },
+    )
+
+    assert response.status_code == 200
+    assert "cities, routes, and regions" in response.json()["text"]
+    provider.chat.assert_not_called()
+
+
+def test_chat_ambiguous_compare_returns_clarification(client: TestClient) -> None:
+    provider = AsyncMock()
+    set_provider(provider)
+
+    response = client.post("/chat", json={"message": "Compare these", "map_context": {}})
+
+    assert response.status_code == 200
+    assert "What should I compare" in response.json()["text"]
+    provider.chat.assert_not_called()
 
 
 # ---------------------------------------------------------------------------

@@ -124,6 +124,13 @@ class TestBuildSystemPrompt:
         assert "name:string" in prompt
         assert "population:number" in prompt
 
+    def test_prompt_can_include_intent_guidance(self) -> None:
+        prompt = build_system_prompt(
+            _make_context(),
+            intent_hint="Treat this as a map action request.",
+        )
+        assert "User intent guidance: Treat this as a map action request." in prompt
+
     def test_prompt_never_contains_feature_values(self) -> None:
         prompt = build_system_prompt(_make_context())
         for forbidden in ["Oakland", "Fresno", "440000", "I-80"]:

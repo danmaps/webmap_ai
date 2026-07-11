@@ -54,8 +54,9 @@ class OpenRouterProvider(LLMProvider):
         message: str,
         map_context: MapContext,
         tools: list[dict[str, Any]],
+        intent_hint: str | None = None,
     ) -> ChatResponse:
-        system_prompt = build_system_prompt(map_context)
+        system_prompt = build_system_prompt(map_context, intent_hint=intent_hint)
         openai_tools = _to_openai_tools(tools)
 
         response = await self._client.chat.completions.create(

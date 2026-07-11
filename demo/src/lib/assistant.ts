@@ -76,6 +76,114 @@ function joinNatural(items: string[]): string {
   return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
+type LocalIntentKind =
+  | "greeting"
+  | "capability"
+  | "exploration"
+  | "ambiguous"
+  | "comparison"
+  | "map_action"
+  | "read_query";
+
+function normalizeMessage(message: string): string {
+  return message.toLowerCase().trim().replace(/\s+/g, " ");
+}
+
+function resolveLocalIntent(
+  message: string,
+  layerNames: string[],
+  selectedFeatureIds: string[],
+): { kind: LocalIntentKind; directText?: string; promptHint?: string } {
+  const lower = normalizeMessage(message);
+  const layers = joinNatural(layerNames);
+
+  const capabilityReply = layers
+    ? `I can help inspect ${layers} on the map. Ask me what's visible, or tell me to zoom, filter, compare, or inspect something specific.`
+    : "I can inspect the current map, answer what's visible, and help with actions like zoom, filter, compare, or inspect. Start with a layer, place, or area.";
+
+  if (!lower) {
+    return {
+      kind: "ambiguous",
+      directText: "What do you want me to do with the map: inspect something, compare areas, or change the view?",
+    };
+  }
+
+  if (["hi", "hello", "hey", "yo", "sup"].includes(lower) || lower.startsWith("hello ") || lower.startsWith("hey ")) {
+    return {
+      kind: "greeting",
+      directText: "Hi. Ask me about what's visible, or tell me to zoom, filter, compare, or inspect something.",
+    };
+  }
+
+  if (
+    ["what can you do", "how do i use", "help me use", "how can you help", "what do you do"].some((phrase) =>
+      lower.includes(phrase),
+    )
+  ) {
+    return { kind: "capability", directText: capabilityReply };
+  }
+
+  if (
+    [
+      "show me something interesting",
+      "what stands out",
+      "where should i start",
+      "give me a quick tour",
+      "show me around",
+    ].some((phrase) => lower.includes(phrase))
+  ) {
+    return {
+      kind: "exploration",
+      directText: layers
+        ? `A good place to start is ${layers}. Try asking what's visible, compare two areas, or tell me which layer you want to inspect.`
+        : "I do not have much map context yet. Try asking what layers are loaded, what is visible, or what area you want to inspect.",
+    };
+  }
+
+  if (
+    ["compare", "versus", " vs ", "difference between", "similar to"].some((term) => lower.includes(term))
+  ) {
+    if (["compare this", "compare these", "compare that", "compare those"].some((phrase) => lower.includes(phrase))) {
+      return {
+        kind: "ambiguous",
+        directText:
+          selectedFeatureIds.length > 0
+            ? "What do you want to compare: the selected features, two layers, or two places on the map?"
+            : "What should I compare: two places, two layers, or the current view against another area?",
+      };
+    }
+    return {
+      kind: "comparison",
+      promptHint:
+        "Treat this as a comparison request. Clarify only if the targets are missing; otherwise compare the requested map entities directly.",
+    };
+  }
+
+  if (["zoom", "pan", "hide", "show", "filter", "highlight", "select", "clear"].some((term) => lower.includes(term))) {
+    return {
+      kind: "map_action",
+      promptHint: "Treat this as a map action request. Prefer doing the requested map operation over merely describing the map.",
+    };
+  }
+
+  if (
+    ["help me inspect", "inspect this", "inspect that", "look at this", "look at that"].some((phrase) =>
+      lower.includes(phrase),
+    )
+  ) {
+    return {
+      kind: "ambiguous",
+      directText:
+        "What do you want to inspect there: visible features, a specific layer, or a comparison with another area?",
+    };
+  }
+
+  return {
+    kind: "read_query",
+    promptHint: "Treat this as a map reading request. Answer only what was asked and avoid extra scene-setting.",
+  };
+}
+
 function buildConversationalReply(message: string, response: AssistantResponse): string {
   const lower = message.toLowerCase();
   const okResults = response.toolResults.filter((result) => result.ok);
@@ -248,6 +356,16 @@ export class AssistantService {
   private async sendViaOpenRouter(userMessage: string): Promise<ChatMessage> {
     const mapState = await this.adapter.getMapState();
     const layers = await this.adapter.listLayers();
+    const visibleLayerNames = layers.filter((l) => l.visible).map((l) => l.name);
+    const intent = resolveLocalIntent(userMessage, visibleLayerNames, mapState.selectedFeatureIds);
+
+    if (intent.directText) {
+      return {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: intent.directText,
+      };
+    }
 
     const systemPrompt = [
       "You are a map assistant embedded in a MapLibre web map.",
@@ -270,6 +388,7 @@ export class AssistantService {
       "Do not say phrases like 'Here's what I can see on the map' or explain the demo unless asked.",
       "No emojis.",
       "Use tools when you need fresh data from the map.",
+      intent.promptHint ? `User intent guidance: ${intent.promptHint}` : "",
     ].join("\n");
 
     const messages: OpenRouterMessage[] = [
@@ -374,6 +493,19 @@ export class AssistantService {
 
   private async sendViaMock(userMessage: string): Promise<ChatMessage> {
     await new Promise((resolve) => setTimeout(resolve, 400));
+
+    const mapState = await this.adapter.getMapState();
+    const layers = await this.adapter.listLayers();
+    const visibleLayerNames = layers.filter((l) => l.visible).map((l) => l.name);
+    const intent = resolveLocalIntent(userMessage, visibleLayerNames, mapState.selectedFeatureIds);
+
+    if (intent.directText) {
+      return {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: intent.directText,
+      };
+    }
 
     const toolCalls = inferToolCalls(userMessage);
     const routerResponse = await this.router.run({ message: userMessage, toolCalls });
