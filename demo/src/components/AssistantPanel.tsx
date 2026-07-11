@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type React from "react";
 import type { AssistantService, ChatMessage } from "../lib/assistant";
-import { OPENROUTER_MODEL } from "../lib/assistant";
 import "./AssistantPanel.css";
 
 interface AssistantPanelProps {
@@ -18,16 +17,11 @@ const WELCOME: ChatMessage = {
   id: "welcome",
   role: "assistant",
   content:
-    "👋 Hi! I'm your map assistant. The map shows **US Regions**, **Interstate Highways**, and **Major US Cities**.\n\n" +
+    "Hi. I can answer questions about the map.\n\n" +
     "Try asking:\n" +
     "- *What layers are loaded?*\n" +
     "- *What cities are visible?*\n" +
-    "- *Tell me about the current map state.*\n\n" +
-    (import.meta.env["VITE_BACKEND_URL"]
-      ? "🟢 Backend URL detected — routing chat through the FastAPI backend."
-      : import.meta.env["VITE_OPENROUTER_API_KEY"]
-        ? `🟢 Public demo mode — using shared OpenRouter access with a low-cost model (\`${OPENROUTER_MODEL}\`).`
-        : "🟡 No API key or backend set — using mock responses. Add `VITE_BACKEND_URL` (FastAPI) or `VITE_OPENROUTER_API_KEY` to `demo/.env` for live AI."),
+    "- *Tell me about the current map state.*",
 };
 
 function renderInline(text: string): React.ReactNode[] {

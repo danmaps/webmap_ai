@@ -52,109 +52,108 @@ function inferToolCalls(message: string): MapAssistantToolCall[] {
   const lower = message.toLowerCase();
   const calls: MapAssistantToolCall[] = [];
 
-  calls.push({ name: "get_map_state" });
-  calls.push({ name: "list_layers" });
-
   if (lower.includes("cities") || lower.includes("city")) {
     calls.push({ name: "query_visible_features", args: { layerId: "cities", limit: 5 } });
-  }
-  if (lower.includes("region") || lower.includes("area")) {
+  } else if (lower.includes("region") || lower.includes("area")) {
     calls.push({ name: "query_visible_features", args: { layerId: "regions", limit: 5 } });
-  }
-  if (lower.includes("highway") || lower.includes("route") || lower.includes("road")) {
+  } else if (lower.includes("highway") || lower.includes("route") || lower.includes("road")) {
     calls.push({ name: "query_visible_features", args: { layerId: "routes", limit: 3 } });
+  } else if (lower.includes("layer")) {
+    calls.push({ name: "list_layers" });
+  } else if (lower.includes("zoom") || lower.includes("pan") || lower.includes("view") || lower.includes("state")) {
+    calls.push({ name: "get_map_state" });
+  } else {
+    calls.push({ name: "list_layers" });
   }
 
   return calls;
 }
 
-function formatToolResultsAsText(response: AssistantResponse): string {
-  const lines: string[] = [];
-
-  for (const result of response.toolResults) {
-    if (!result.ok) {
-      lines.push(`⚠️ **${result.name}** failed: ${result.error ?? "unknown error"}`);
-      continue;
-    }
-    switch (result.name) {
-      case "get_map_state": {
-        const state = result.data as {
-          zoom?: number;
-          center?: { lng: number; lat: number };
-          bounds?: { west: number; south: number; east: number; north: number };
-          selectedFeatureIds?: string[];
-        };
-        lines.push(
-          `Map: zoom ${(state.zoom ?? 0).toFixed(1)}, center ${(state.center?.lng ?? 0).toFixed(2)}, ${(state.center?.lat ?? 0).toFixed(2)}`,
-        );
-        break;
-      }
-      case "list_layers": {
-        const layers = result.data as Array<{ id: string; name: string; visible: boolean }>;
-        const visible = layers.filter((l) => l.visible).map((l) => l.name);
-        lines.push(`Layers: ${visible.length > 0 ? visible.join(", ") : "none visible"}`);
-        break;
-      }
-      case "query_visible_features": {
-        const features = result.data as Array<{ id: string; properties: Record<string, unknown> }>;
-        const count = features.length;
-        const sample = features
-          .slice(0, 3)
-          .map((f) => {
-            const name = f.properties["name"] ?? f.id;
-            return String(name);
-          })
-          .join(", ");
-        lines.push(`Visible features (${count}): ${sample}${count > 3 ? "…" : ""}`);
-        break;
-      }
-      case "query_features": {
-        const features = result.data as Array<{ id: string; properties: Record<string, unknown> }>;
-        const count = features.length;
-        const sample = features
-          .slice(0, 3)
-          .map((f) => {
-            const name = f.properties["name"] ?? f.id;
-            return String(name);
-          })
-          .join(", ");
-        lines.push(
-          `Query results (${count}): ${sample}${count > 3 ? "…" : ""}${result.sql ? `\nSQL: ${result.sql}` : ""}`,
-        );
-        break;
-      }
-      case "get_layer_schema": {
-        const schema = result.data as { layerId: string; fields: Array<{ name: string; type: string }> };
-        const fields = schema.fields.map((f) => `${f.name}:${f.type}`).join(", ");
-        lines.push(`Schema for ${schema.layerId}: ${fields}`);
-        break;
-      }
-      case "set_layer_visibility":
-        lines.push("Layer visibility updated.");
-        break;
-      case "set_view":
-        lines.push("Map view updated.");
-        break;
-      default:
-        lines.push(`${result.name} completed.`);
-    }
-  }
-
-  return lines.join("\n");
+function joinNatural(items: string[]): string {
+  if (items.length === 0) return "";
+  if (items.length === 1) return items[0];
+  if (items.length === 2) return `${items[0]} and ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")}, and ${items[items.length - 1]}`;
 }
 
-function buildMockReply(message: string, toolSummary: string): string {
+function buildConversationalReply(message: string, response: AssistantResponse): string {
   const lower = message.toLowerCase();
+  const okResults = response.toolResults.filter((result) => result.ok);
 
-  if (lower.includes("layer") || lower.includes("what") || lower.includes("show")) {
-    return toolSummary;
+  if (okResults.length === 0) {
+    const failed = response.toolResults.find((result) => !result.ok);
+    return failed?.error ?? "I couldn't get that from the map.";
   }
-  if (lower.includes("city") || lower.includes("cities")) {
-    return toolSummary;
+
+  const layerResult = okResults.find((result) => result.name === "list_layers");
+  const mapStateResult = okResults.find((result) => result.name === "get_map_state");
+  const visibleResult = okResults.find((result) => result.name === "query_visible_features");
+  const queryResult = okResults.find((result) => result.name === "query_features");
+
+  if (lower.includes("layer")) {
+    const layers = (layerResult?.data as Array<{ name: string; visible: boolean }> | undefined) ?? [];
+    const visibleLayers = layers.filter((layer) => layer.visible).map((layer) => layer.name);
+    return visibleLayers.length > 0
+      ? `Loaded layers: ${joinNatural(visibleLayers)}.`
+      : "No layers are visible right now.";
   }
-  if (lower.includes("zoom") || lower.includes("pan") || lower.includes("view")) {
-    return toolSummary || "Ask for a city, layer, or map view.";
+
+  if (lower.includes("cities") || lower.includes("city")) {
+    const features = (visibleResult?.data as Array<{ id: string; properties: Record<string, unknown> }> | undefined) ?? [];
+    const names = features
+      .slice(0, 5)
+      .map((feature) => String(feature.properties["name"] ?? feature.id));
+    if (names.length === 0) return "I don't see any cities in view right now.";
+    return `I can see ${joinNatural(names)}.`;
   }
+
+  if (lower.includes("region") || lower.includes("area")) {
+    const features = (visibleResult?.data as Array<{ id: string; properties: Record<string, unknown> }> | undefined) ?? [];
+    const names = features
+      .slice(0, 5)
+      .map((feature) => String(feature.properties["name"] ?? feature.id));
+    if (names.length === 0) return "I don't see any regions in view right now.";
+    return `In view: ${joinNatural(names)}.`;
+  }
+
+  if (lower.includes("highway") || lower.includes("route") || lower.includes("road")) {
+    const features = (visibleResult?.data as Array<{ id: string; properties: Record<string, unknown> }> | undefined) ?? [];
+    const names = features
+      .slice(0, 5)
+      .map((feature) => String(feature.properties["name"] ?? feature.id));
+    if (names.length === 0) return "I don't see any routes in view right now.";
+    return `Visible routes: ${joinNatural(names)}.`;
+  }
+
+  if (lower.includes("zoom") || lower.includes("pan") || lower.includes("view") || lower.includes("state")) {
+    const state = mapStateResult?.data as
+      | {
+          zoom?: number;
+          center?: { lng: number; lat: number };
+        }
+      | undefined;
+    if (!state) return "I couldn't read the current map view.";
+    return `The map is at zoom ${((state.zoom ?? 0) as number).toFixed(1)}, centered near ${((state.center?.lng ?? 0) as number).toFixed(2)}, ${((state.center?.lat ?? 0) as number).toFixed(2)}.`;
+  }
+
+  if (queryResult) {
+    const features = (queryResult.data as Array<{ id: string; properties: Record<string, unknown> }> | undefined) ?? [];
+    const names = features
+      .slice(0, 5)
+      .map((feature) => String(feature.properties["name"] ?? feature.id));
+    if (names.length > 0) return `I found ${joinNatural(names)}.`;
+  }
+
+  if (layerResult) {
+    const layers = (layerResult.data as Array<{ name: string; visible: boolean }> | undefined) ?? [];
+    const visibleLayers = layers.filter((layer) => layer.visible).map((layer) => layer.name);
+    if (visibleLayers.length > 0) return `Right now I can see ${joinNatural(visibleLayers)}.`;
+  }
+
+  return "I checked the map, but I don't have a cleaner answer for that yet.";
+}
+
+function buildMockReply(toolSummary: string): string {
   return toolSummary || "Ask for layers, visible features, or the current map state.";
 }
 
@@ -228,15 +227,15 @@ export class AssistantService {
       .filter((tc): tc is MapAssistantToolCall => tc !== null);
 
     let toolResults: AssistantResponse["toolResults"] = [];
-    let toolSummary = "";
+    let fallbackText = "";
 
     if (toolCalls.length > 0) {
       const routerResponse = await this.router.run({ message: userMessage, toolCalls });
       toolResults = routerResponse.toolResults;
-      toolSummary = formatToolResultsAsText(routerResponse);
+      fallbackText = buildConversationalReply(userMessage, routerResponse);
     }
 
-    const text = json.text || toolSummary || "(No response)";
+    const text = json.text || fallbackText || "(No response)";
 
     return {
       id: crypto.randomUUID(),
@@ -337,7 +336,7 @@ export class AssistantService {
     return {
       id: crypto.randomUUID(),
       role: "assistant",
-      content: formatToolResultsAsText({ toolResults: allToolResults } as AssistantResponse) ||
+      content: buildConversationalReply(userMessage, { toolResults: allToolResults } as AssistantResponse) ||
         "(No response after tool calls)",
       toolResults: allToolResults.length > 0 ? allToolResults : undefined,
     };
@@ -378,8 +377,7 @@ export class AssistantService {
 
     const toolCalls = inferToolCalls(userMessage);
     const routerResponse = await this.router.run({ message: userMessage, toolCalls });
-    const toolSummary = formatToolResultsAsText(routerResponse);
-    const text = buildMockReply(userMessage, toolSummary);
+    const text = buildMockReply(buildConversationalReply(userMessage, routerResponse));
 
     return {
       id: crypto.randomUUID(),
