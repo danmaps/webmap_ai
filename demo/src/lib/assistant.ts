@@ -1,6 +1,7 @@
 import { MapAssistantRouter, MapLibreMapAssistantAdapter, parseToolCall, TOOL_REGISTRY } from "webmap_ai";
 import type { MapLibreMapLike } from "webmap_ai";
 import type { AssistantResponse, MapAssistantToolCall } from "webmap_ai";
+import { DEMO_LAYERS } from "./layers";
 
 export interface ChatMessage {
   id: string;
@@ -28,6 +29,13 @@ interface OpenRouterChoice {
     content?: string;
     tool_calls?: OpenRouterToolCall[];
   };
+}
+
+interface MapContextLayerSchema {
+  layer_id: string;
+  layer_name: string;
+  geometry_type: "point" | "line" | "polygon";
+  fields: Array<{ name: string; type: "string" | "number" }>;
 }
 
 const TOOL_DEFINITIONS = TOOL_REGISTRY.map((entry) => ({
@@ -67,6 +75,84 @@ function inferToolCalls(message: string): MapAssistantToolCall[] {
   }
 
   return calls;
+}
+
+function inferFieldType(value: unknown): "string" | "number" {
+  return typeof value === "number" ? "number" : "string";
+}
+
+function buildLayerSchemas(): MapContextLayerSchema[] {
+  return DEMO_LAYERS.map((layer) => {
+    const firstFeature =
+      layer.geojson.type === "FeatureCollection" ? layer.geojson.features[0] : undefined;
+    const properties = firstFeature?.properties ?? {};
+    const geometryType =
+      layer.type === "circle" ? "point" : layer.type === "line" ? "line" : "polygon";
+
+    return {
+      layer_id: layer.id,
+      layer_name: layer.name,
+      geometry_type: geometryType,
+      fields: Object.entries(properties).map(([name, value]) => ({
+        name,
+        type: inferFieldType(value),
+      })),
+    };
+  });
+}
+
+function inferDeterministicToolCalls(
+  message: string,
+  layers: Array<{ id: string; name: string; visible: boolean }>,
+): MapAssistantToolCall[] {
+  const lower = normalizeMessage(message);
+  const calls: MapAssistantToolCall[] = [];
+  const controllableLayerIds = new Set(DEMO_LAYERS.map((layer) => layer.id));
+  const controllableLayers = layers.filter((layer) => controllableLayerIds.has(layer.id));
+
+  const matchedLayers = controllableLayers.filter((layer) => {
+    const id = layer.id.toLowerCase();
+    const name = layer.name.toLowerCase();
+    const singularName = name.endsWith("s") ? name.slice(0, -1) : name;
+    return (
+      lower.includes(id) ||
+      lower.includes(name) ||
+      (singularName.length > 2 && lower.includes(singularName))
+    );
+  });
+
+  const wantsHide = ["turn off", "switch off", "hide", "disable"].some((term) => lower.includes(term));
+  const wantsShow = ["turn on", "switch on", "show", "enable"].some((term) => lower.includes(term));
+  const mentionsAllLayers =
+    (lower.includes("all layers") || lower.includes("the layers")) &&
+    (wantsHide || wantsShow);
+
+  if (mentionsAllLayers) {
+    return controllableLayers.map((layer) => ({
+      name: "set_layer_visibility",
+      args: { layerId: layer.id, visible: wantsShow },
+    }));
+  }
+
+  if (matchedLayers.length > 0 && (wantsHide || wantsShow)) {
+    for (const layer of matchedLayers) {
+      calls.push({
+        name: "set_layer_visibility",
+        args: { layerId: layer.id, visible: wantsShow },
+      });
+    }
+    return calls;
+  }
+
+  if (
+    lower.includes("population") &&
+    (lower.includes("cities") || lower.includes("city")) &&
+    ["see", "visible", "shown", "view"].some((term) => lower.includes(term))
+  ) {
+    return [{ name: "query_visible_features", args: { layerId: "cities", limit: 10 } }];
+  }
+
+  return [];
 }
 
 function joinNatural(items: string[]): string {
@@ -215,9 +301,30 @@ function buildConversationalReply(message: string, response: AssistantResponse):
 
   if (lower.includes("cities") || lower.includes("city")) {
     const features = (visibleResult?.data as Array<{ id: string; properties: Record<string, unknown> }> | undefined) ?? [];
-    const names = features
-      .slice(0, 5)
-      .map((feature) => String(feature.properties["name"] ?? feature.id));
+    if (lower.includes("population")) {
+      const cityPops = features.slice(0, 5).map((feature) => {
+        const name = String(feature.properties["name"] ?? feature.id);
+        const population = feature.properties["population"];
+        return {
+          name,
+          population:
+            typeof population === "number" ? population.toLocaleString("en-US") : null,
+        };
+      });
+      if (cityPops.length === 0) return "I don't see any cities in view right now.";
+      if (cityPops.length === 1) {
+        const city = cityPops[0];
+        return city.population
+          ? `${city.name} has population ${city.population}.`
+          : `${city.name} is visible, but I don't have its population value.`;
+      }
+      return cityPops
+        .map((city) =>
+          city.population ? `${city.name}: ${city.population}` : `${city.name}: population unavailable`,
+        )
+        .join("; ");
+    }
+    const names = features.slice(0, 5).map((feature) => String(feature.properties["name"] ?? feature.id));
     if (names.length === 0) return "I don't see any cities in view right now.";
     return `I can see ${joinNatural(names)}.`;
   }
@@ -307,6 +414,23 @@ export class AssistantService {
   private async sendViaBackend(userMessage: string): Promise<ChatMessage> {
     const mapState = await this.adapter.getMapState();
     const layers = await this.adapter.listLayers();
+    const deterministicToolCalls = inferDeterministicToolCalls(
+      userMessage,
+      layers.map((layer) => ({ id: layer.id, name: layer.name, visible: layer.visible })),
+    );
+
+    if (deterministicToolCalls.length > 0) {
+      const routerResponse = await this.router.run({
+        message: userMessage,
+        toolCalls: deterministicToolCalls,
+      });
+      return {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: buildConversationalReply(userMessage, routerResponse),
+        toolResults: routerResponse.toolResults.length > 0 ? routerResponse.toolResults : undefined,
+      };
+    }
 
     const mapContext = {
       bbox: {
@@ -319,6 +443,7 @@ export class AssistantService {
       zoom: mapState.zoom,
       visible_layers: layers.filter((l) => l.visible).map((l) => l.id),
       selected_feature_ids: mapState.selectedFeatureIds,
+      layer_schemas: buildLayerSchemas(),
     };
 
     const resp = await fetch(`${this.backendUrl}/chat`, {

@@ -27,6 +27,10 @@ const FIELD_LABELS: Record<string, string> = {
   states_served: "States served",
 };
 
+const COMPANION_LAYER_IDS: Record<string, string[]> = {
+  cities: ["cities-labels"],
+};
+
 function formatValue(key: string, value: unknown): string {
   if (value == null) return "—";
   if (typeof value === "number") {
@@ -58,6 +62,15 @@ function popupHtml(properties: Record<string, unknown>): string {
     })
     .join("");
   return `<div class="feature-popup"><h3>${title}</h3><table>${rows}</table></div>`;
+}
+
+function inferSchemaMetadata(properties: Record<string, unknown>) {
+  return {
+    fields: Object.entries(properties).map(([name, value]) => ({
+      name,
+      type: typeof value === "number" ? "number" : "string",
+    })),
+  };
 }
 
 // MapLibre drops non-numeric feature ids from query results. Copy each
@@ -135,7 +148,15 @@ export function MapView({ onMapReady }: MapViewProps) {
           paint: layer.paint as any,
           layout: { visibility: "visible" },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          metadata: { "webmap_ai:name": layer.name } as any,
+          metadata: {
+            "webmap_ai:name": layer.name,
+            "webmap_ai:companions": COMPANION_LAYER_IDS[layer.id] ?? [],
+            schema: inferSchemaMetadata(
+              layer.geojson.type === "FeatureCollection"
+                ? ((layer.geojson.features[0]?.properties ?? {}) as Record<string, unknown>)
+                : {},
+            ),
+          } as any,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
         } as any);
       }
@@ -156,6 +177,9 @@ export function MapView({ onMapReady }: MapViewProps) {
           "text-color": "#ffffff",
           "text-halo-color": "rgba(0,0,0,0.6)",
           "text-halo-width": 1,
+        },
+        metadata: {
+          "webmap_ai:companionFor": "cities",
         },
       });
 
@@ -198,4 +222,3 @@ export function MapView({ onMapReady }: MapViewProps) {
 
   return <div ref={containerRef} className="map-container" />;
 }
-

@@ -241,8 +241,13 @@ export class MapLibreMapAssistantAdapter implements MapAssistantAdapter {
   }
 
   public async setLayerVisibility(layerId: string, visible: boolean): Promise<void> {
-    this.requireLayer(layerId);
-    this.map.setLayoutProperty(layerId, "visibility", visible ? "visible" : "none");
+    const layer = this.requireLayer(layerId);
+    const visibility = visible ? "visible" : "none";
+    this.map.setLayoutProperty(layerId, "visibility", visibility);
+
+    for (const companionId of this.getCompanionLayerIds(layer.metadata)) {
+      this.map.setLayoutProperty(companionId, "visibility", visibility);
+    }
   }
 
   public async setFilter(args: SetFilterArgs): Promise<void> {
@@ -626,6 +631,15 @@ export class MapLibreMapAssistantAdapter implements MapAssistantAdapter {
 
   private getMetadataValue(metadata: Record<string, unknown> | undefined, key: string): unknown {
     return metadata?.[key];
+  }
+
+  private getCompanionLayerIds(metadata: Record<string, unknown> | undefined): string[] {
+    const companions = this.getMetadataValue(metadata, "webmap_ai:companions");
+    if (!Array.isArray(companions)) {
+      return [];
+    }
+
+    return companions.filter((value): value is string => typeof value === "string");
   }
 
   private toRecord(value: unknown): Record<string, unknown> | undefined {
