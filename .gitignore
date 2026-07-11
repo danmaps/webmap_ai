@@ -1,5 +1,8 @@
 node_modules/
 dist/
+.env
+.env.local
+.venv/
 *.tsbuildinfo
 __pycache__/
 *.py[cod]

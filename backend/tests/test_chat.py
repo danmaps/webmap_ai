@@ -180,6 +180,13 @@ def test_chat_no_provider_returns_503(client: TestClient) -> None:
     assert response.status_code == 503
 
 
+def test_chat_unknown_provider_returns_503(client: TestClient) -> None:
+    set_provider(None)
+    with patch.dict("os.environ", {"LLM_PROVIDER": "wat"}, clear=False):
+        response = client.post("/chat", json={"message": "hello", "map_context": {}})
+    assert response.status_code == 503
+
+
 # ---------------------------------------------------------------------------
 # Request model – default map_context is accepted
 # ---------------------------------------------------------------------------

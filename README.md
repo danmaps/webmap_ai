@@ -150,7 +150,7 @@ backend or an OpenRouter key for full LLM tool-calling. See
 ## Backend
 
 The `backend/` Python package provides a FastAPI server that forwards
-map-aware chat messages to an LLM (OpenAI or Anthropic) using tool-calling.
+map-aware chat messages to an LLM (OpenAI, OpenRouter, or Anthropic) using tool-calling.
 
 ### Quick start
 
@@ -160,7 +160,7 @@ pip install -r requirements.txt
 
 # 2. Copy and fill in environment variables
 cp .env.example .env
-# then set OPENAI_API_KEY (or ANTHROPIC_API_KEY)
+# then set OPENAI_API_KEY, OPENROUTER_API_KEY, or ANTHROPIC_API_KEY
 
 # 3. Run the development server
 uvicorn backend.main:app --reload
@@ -203,9 +203,13 @@ do all map interactions.
 
 | Variable | Required | Default | Description |
 |---|---|---|---|
-| `LLM_PROVIDER` | No | `openai` | `openai` or `anthropic` |
+| `LLM_PROVIDER` | No | `openai` | `openai`, `openrouter`, or `anthropic` |
 | `OPENAI_API_KEY` | When `LLM_PROVIDER=openai` | — | OpenAI API key |
 | `OPENAI_MODEL` | No | `gpt-4o-mini` | OpenAI model name |
+| `OPENROUTER_API_KEY` | When `LLM_PROVIDER=openrouter` | — | OpenRouter API key |
+| `OPENROUTER_MODEL` | No | `openai/gpt-4o-mini` | OpenRouter model name |
+| `OPENROUTER_HTTP_REFERER` | No | `https://dannymcvey.com` | OpenRouter referer header |
+| `OPENROUTER_X_TITLE` | No | `webmap_ai backend` | OpenRouter title header |
 | `ANTHROPIC_API_KEY` | When `LLM_PROVIDER=anthropic` | — | Anthropic API key |
 | `ANTHROPIC_MODEL` | No | `claude-3-5-haiku-latest` | Anthropic model name |
 

@@ -6,9 +6,11 @@ Run locally with:
 
 Environment variables
 ---------------------
-LLM_PROVIDER     "openai" (default) or "anthropic"
+LLM_PROVIDER     "openai" (default), "anthropic", or "openrouter"
 OPENAI_API_KEY   Required when LLM_PROVIDER=openai
 OPENAI_MODEL     Optional – defaults to gpt-4o-mini
+OPENROUTER_API_KEY  Required when LLM_PROVIDER=openrouter
+OPENROUTER_MODEL    Optional – defaults to openai/gpt-4o-mini
 ANTHROPIC_API_KEY  Required when LLM_PROVIDER=anthropic
 ANTHROPIC_MODEL    Optional – defaults to claude-3-5-haiku-latest
 """
@@ -19,10 +21,13 @@ import os
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 
 from backend.models import ChatRequest, ChatResponse
 from backend.providers.base import LLMProvider
 from backend.tools import TOOL_DEFINITIONS
+
+load_dotenv()
 
 app = FastAPI(
     title="webmap_ai backend",
@@ -55,13 +60,17 @@ def _get_provider() -> LLMProvider:
         from backend.providers.openai import OpenAIProvider
 
         _provider = OpenAIProvider()
+    elif vendor == "openrouter":
+        from backend.providers.openrouter import OpenRouterProvider
+
+        _provider = OpenRouterProvider()
     elif vendor == "anthropic":
         from backend.providers.anthropic import AnthropicProvider
 
         _provider = AnthropicProvider()
     else:
         raise ValueError(
-            f"Unknown LLM_PROVIDER '{vendor}'. Supported values: openai, anthropic."
+            f"Unknown LLM_PROVIDER '{vendor}'. Supported values: openai, anthropic, openrouter."
         )
 
     return _provider
