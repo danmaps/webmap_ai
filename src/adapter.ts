@@ -8,9 +8,13 @@ import type {
   SelectFeaturesArgs,
   SetFilterArgs,
   SetViewArgs,
+  SummarizeFeaturesArgs,
+  SummaryResult,
 } from "./types.js";
 
 export interface MapAssistantAdapter {
+  /** Optional capability. Tile rendering alone cannot establish dataset totals. */
+  summarizeFeatures?(args: SummarizeFeaturesArgs): Promise<SummaryResult>;
   getMapState(): Promise<MapState>;
   listLayers(): Promise<LayerSummary[]>;
   getLayerSchema(layerId: string): Promise<LayerSchema>;

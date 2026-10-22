@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
+    "proof:projects": "npm run build && node examples/active-projects/run.mjs",
     "check": "npm run typecheck && npm run test",
     "prepublishOnly": "npm run build"
   },
