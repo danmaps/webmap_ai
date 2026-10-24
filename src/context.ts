@@ -27,6 +27,8 @@ export interface LayerContext {
   visible: boolean;
   geometryType?: string | undefined;
   fields: LayerFieldSummary[];
+  description?: string;
+  summary?: LayerSchema["summary"];
 }
 
 /**
@@ -85,6 +87,8 @@ export async function buildAssistantContext(
       visible: summary.visible,
       geometryType: schema?.geometryType,
       fields: schema?.fields ?? [],
+      ...(summary.description ? { description: summary.description } : {}),
+      ...(schema?.summary ? { summary: schema.summary } : {}),
     };
   });
 

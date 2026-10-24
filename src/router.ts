@@ -22,19 +22,26 @@ export class MapAssistantRouter {
       }
 
       let sql: string | undefined;
+      const executedAt = new Date().toISOString();
+      const execution = toolCall.name === "summarize_features" ? {
+        tool: toolCall.name, executedAt, args: toolCall.args,
+        operation: this.adapter.summarizeFeatures ? "adapter.summarizeFeatures" : "capability_check",
+      } : undefined;
 
       try {
         if (toolCall.name === "query_features") {
           sql = buildQueryFeaturesSql(toolCall.args);
         }
         const data = await this.dispatch(toolCall);
-        toolResults.push({ name: toolCall.name, ok: true, ...withSql(sql), data });
+        toolResults.push({ name: toolCall.name, ok: true, ...withSql(sql), data,
+          ...(execution ? { execution: { ...execution, outcome: "returned" as const } } : {}) });
       } catch (error) {
         const message = error instanceof Error ? error.message : "Unknown tool execution error";
         if (error instanceof ReadOnlySqlValidationError) {
           sql = error.sql;
         }
-        toolResults.push({ name: toolCall.name, ok: false, ...withSql(sql), error: message });
+        toolResults.push({ name: toolCall.name, ok: false, ...withSql(sql), error: message,
+          ...(execution ? { execution: { ...execution, outcome: "failed" as const } } : {}) });
       }
     }
 
@@ -51,6 +58,12 @@ export class MapAssistantRouter {
     toolCall: NonNullable<ReturnType<typeof parseToolCall>>,
   ): Promise<unknown> {
     switch (toolCall.name) {
+      case "summarize_features":
+        if (!this.adapter.summarizeFeatures) {
+          return { status: "unavailable", scope: "unknown", completeness: "unknown",
+            groups: [], warnings: ["Adapter does not support deterministic summaries."] };
+        }
+        return this.adapter.summarizeFeatures(toolCall.args);
       case "list_layers":
         return this.adapter.listLayers();
       case "get_map_state":

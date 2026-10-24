@@ -25,6 +25,7 @@ import type {
 
 export interface JsonSchemaProperty {
   type: string;
+  enum?: string[];
   description?: string;
   properties?: Record<string, JsonSchemaProperty>;
   required?: string[];
@@ -51,6 +52,20 @@ export interface ToolRegistryEntry {
 // ---- Registry -------------------------------------------------------------
 
 export const TOOL_REGISTRY: readonly ToolRegistryEntry[] = [
+  {
+    name: "summarize_features",
+    description: "Count features or distinct entities by one declared attribute. Inspect get_layer_schema first for authored rules and capability. Only status=complete supports dataset totals; never sum query samples.",
+    parameters: {
+      type: "object",
+      properties: {
+        layerId: { type: "string" },
+        groupBy: { type: "string" },
+        countBy: { type: "string", enum: ["entity", "feature"], description: "entity or feature" },
+        filter: { type: "object", properties: { field: { type: "string" }, value: { type: "string" } }, required: ["field", "value"] },
+      },
+      required: ["layerId", "groupBy", "countBy"],
+    },
+  },
   {
     name: "list_layers",
     description: "List all available map layers with their visibility status.",
@@ -201,6 +216,22 @@ export function parseToolCall(name: string, rawArgs: unknown): MapAssistantToolC
   const a = isRecord(rawArgs) ? rawArgs : {};
 
   switch (name) {
+    case "summarize_features": {
+      if (!isNonEmptyString(a["layerId"]) || !isNonEmptyString(a["groupBy"]) ||
+          (a["countBy"] !== "entity" && a["countBy"] !== "feature")) return null;
+      // No sample limits or undeclared query language can silently affect a total.
+      if (Object.keys(a).some((key) => !["layerId", "groupBy", "countBy", "filter"].includes(key))) return null;
+      const args: import("./types.js").SummarizeFeaturesArgs = {
+        layerId: a["layerId"], groupBy: a["groupBy"], countBy: a["countBy"],
+      };
+      if (a["filter"] !== undefined) {
+        const f = a["filter"];
+        if (!isRecord(f) || !isNonEmptyString(f["field"]) || !isNonEmptyString(f["value"]) ||
+            Object.keys(f).some((key) => !["field", "value"].includes(key))) return null;
+        args.filter = { field: f["field"], value: f["value"] };
+      }
+      return { name: "summarize_features", args };
+    }
     case "list_layers":
       return { name: "list_layers" };
 

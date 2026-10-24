@@ -216,9 +216,10 @@ describe("MapAssistantRouter", () => {
 // ---- Registry & parseToolCall tests ---------------------------------------
 
 describe("TOOL_REGISTRY", () => {
-  it("contains exactly the 10 declared tools", () => {
+  it("contains exactly the 11 declared tools", () => {
     const names = TOOL_REGISTRY.map((t) => t.name);
     expect(names).toEqual([
+      "summarize_features",
       "list_layers",
       "get_map_state",
       "get_layer_schema",

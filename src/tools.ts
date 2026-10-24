@@ -4,9 +4,11 @@ import type {
   SelectFeaturesArgs,
   SetFilterArgs,
   SetViewArgs,
+  SummarizeFeaturesArgs,
 } from "./types.js";
 
 export type MapAssistantToolName =
+  | "summarize_features"
   | "list_layers"
   | "get_map_state"
   | "get_layer_schema"
@@ -19,6 +21,7 @@ export type MapAssistantToolName =
   | "set_filter";
 
 export type MapAssistantToolCall =
+  | { name: "summarize_features"; args: SummarizeFeaturesArgs }
   | { name: "list_layers" }
   | { name: "get_map_state" }
   | { name: "get_layer_schema"; args: { layerId: string } }
@@ -49,5 +52,12 @@ export interface AssistantResponse {
     sql?: string;
     data?: unknown;
     error?: string;
+    execution?: {
+      tool: string;
+      executedAt: string;
+      operation: string;
+      args: SummarizeFeaturesArgs;
+      outcome: "returned" | "failed";
+    };
   }>;
 }

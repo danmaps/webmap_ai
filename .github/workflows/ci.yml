@@ -19,3 +19,9 @@ jobs:
       - run: npm run typecheck
       - run: npm run build
       - run: npm test
+      - name: Run offline active-projects proof
+        run: node examples/active-projects/run.mjs > active-projects-proof.md
+      - uses: actions/upload-artifact@v4
+        with:
+          name: active-projects-proof
+          path: active-projects-proof.md

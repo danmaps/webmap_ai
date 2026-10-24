@@ -280,3 +280,11 @@ Provider-neutral TypeScript core (router, tool schema, memory + MapLibre
 adapters), a FastAPI backend with LLM tool-calling, a MapLibre demo app, and a
 CI + trusted-publishing release pipeline. Read-only tools are the current focus,
 with reversible write actions rolling out behind explicit confirmation.
+
+## Local trustworthiness proof
+
+Run `npm ci` and `npm run proof:projects` for the synthetic **“How many active projects are there by district?”** scenario. The complete local source returns **North 12, South 9, West 6 (27 projects)** before and after viewport movement, despite 81 matching segments, repeated feature representations, and the legacy 50-row query cap. The loaded-tile simulation explicitly refuses complete totals.
+
+The standalone provider-neutral runner executes schema and summary tools before answering and links its answer to inspectable receipts. `npm run check` covers deterministic results and mocked orchestration without an API key; CI also publishes the proof transcript. This adds optional count-only summary capability through the existing registry/router/adapter seam. It does not migrate the demo/backend chat paths or claim authoritative coverage for MapLibre queries.
+
+See [dependency readiness, rules, limitations, and the pending manual live-model check](docs/active-projects-proof.md). Prerequisites #28–#32 remain partially implemented and open.
